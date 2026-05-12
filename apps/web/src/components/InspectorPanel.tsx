@@ -4,6 +4,7 @@ import { useUIStore } from "../store/uiStore";
 import { mixer } from "../engine/Mixer";
 import { INSPECTOR_WIDTH } from "../theme";
 import { Knob } from "./ui/Knob";
+import { formatBeatLength } from "../utils/musicalTime";
 
 export function InspectorPanel() {
   const { selectedTrackId, toggleInspector } = useUIStore();
@@ -12,28 +13,28 @@ export function InspectorPanel() {
 
   return (
     <div
-      className="flex shrink-0 flex-col overflow-hidden border-l border-daw-border bg-daw-surface"
+      className="flex shrink-0 flex-col overflow-hidden  border border-daw-border bg-daw-panel shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
       style={{ width: INSPECTOR_WIDTH, minWidth: INSPECTOR_WIDTH }}
     >
-      <div className="flex h-8 shrink-0 items-center justify-between border-b border-daw-border bg-daw-sunken px-2.5">
-        <span className="text-[12px] font-semibold text-daw-dim">Inspector</span>
-        <button onClick={toggleInspector} className="rounded p-1 text-daw-faint transition-colors hover:bg-daw-surface-high hover:text-daw-text">
+      <div className="flex h-6 shrink-0 items-center justify-between border-b border-daw-border bg-daw-surface px-2">
+        <span className="text-[11px] font-semibold text-daw-text">Inspector</span>
+        <button onClick={toggleInspector} className="rounded-lg p-1.5 text-daw-faint transition-colors hover:bg-daw-surface-high hover:text-daw-text">
           <X size={13} />
         </button>
       </div>
 
       {!track ? (
-        <div className="flex flex-1 items-center justify-center px-5 text-center text-[12px] leading-5 text-daw-faint">
+        <div className="flex flex-1 items-center justify-center px-6 text-center text-[11px] leading-6 text-daw-faint">
           Select a track or clip to inspect channel settings.
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto">
           <Section label="Track">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-2 shrink-0 rounded" style={{ background: track.color }} />
+              <div className="h-12 w-2 shrink-0 rounded-full" style={{ background: track.color }} />
               <div className="min-w-0">
-                <div className="truncate text-[13px] font-semibold text-daw-text">{track.name}</div>
-                <div className="mt-1 flex items-center gap-1 text-[11px] text-daw-faint">
+                <div className="truncate text-[11px] font-semibold text-daw-text">{track.name}</div>
+                <div className="mt-1 flex items-center gap-1 text-[9px] text-daw-faint">
                   <Mic2 size={9} /> Audio Track
                 </div>
               </div>
@@ -56,7 +57,7 @@ export function InspectorPanel() {
           <Section label="Inserts">
             <div className="flex flex-col gap-1">
               {Array.from({ length: 4 }, (_, i) => (
-                <div key={i} className="flex h-7 items-center justify-center gap-2 rounded border border-dashed border-daw-border bg-daw-bg text-[11px] text-daw-faint">
+                <div key={i} className="flex h-8 items-center justify-center gap-2 rounded-lg border border-dashed border-daw-border bg-daw-bg text-[9px] text-daw-faint">
                   <Sliders size={9} /> Empty Slot
                 </div>
               ))}
@@ -69,11 +70,11 @@ export function InspectorPanel() {
             ) : (
               <div className="flex flex-col gap-1">
                 {track.clips.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 rounded border border-daw-border bg-daw-bg px-2 py-2">
+                  <div key={c.id} className="flex items-center gap-2 rounded-lg border border-daw-border bg-daw-bg px-2.5 py-2">
                     <Volume2 size={10} className="shrink-0 text-daw-faint" />
                     <div className="flex-1 min-w-0">
                       <div className="text-[10px] text-daw-dim truncate">{c.name}</div>
-                      <div className="text-[9px] text-daw-faint">{c.duration.toFixed(2)}s</div>
+                      <div className="text-[9px] text-daw-faint">{formatBeatLength(c.duration, project.bpm)}</div>
                     </div>
                   </div>
                 ))}
@@ -89,8 +90,8 @@ export function InspectorPanel() {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="border-b border-daw-border">
-      <div className="px-2.5 pb-2 pt-3 text-[11px] font-semibold text-daw-faint">{label}</div>
-      <div className="px-2.5 pb-3">{children}</div>
+      <div className="px-3 pb-2 pt-4 text-[9px] font-semibold uppercase tracking-wide text-daw-faint">{label}</div>
+      <div className="px-3 pb-4">{children}</div>
     </div>
   );
 }

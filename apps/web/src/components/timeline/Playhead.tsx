@@ -30,15 +30,15 @@ export function Playhead() {
     <>
       {/* Playhead triangle (sits on ruler) */}
       <div ref={headRef} className="absolute top-0 left-0 pointer-events-none z-20 will-change-transform">
-        <svg width={11} height={11} viewBox="0 0 11 11" className="block drop-shadow">
-          <polygon points="0,0 11,0 5.5,11" fill="#5aa7ff" />
+        <svg width={12} height={12} viewBox="0 0 12 12" className="block drop-shadow">
+          <polygon points="0,0 12,0 6,12" fill="#48a6a7" />
         </svg>
       </div>
       {/* Vertical line through tracks */}
       <div
         ref={lineRef}
         className="absolute top-0 bottom-0 left-0 pointer-events-none z-10 will-change-transform"
-        style={{ width: 1, background: "rgba(90,167,255,0.82)" }}
+        style={{ width: 2, background: "rgba(72,166,167,0.86)" }}
       />
     </>
   );

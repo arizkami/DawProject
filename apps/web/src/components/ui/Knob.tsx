@@ -10,7 +10,7 @@ type Props = {
   onChange: (v: number) => void;
 };
 
-export function Knob({ value, min = 0, max = 1, size = 32, label, color = "#5aa7ff", onChange }: Props) {
+export function Knob({ value, min = 0, max = 1, size = 38, label, color = "#48a6a7", onChange }: Props) {
   const startY = useRef(0);
   const startVal = useRef(0);
 
@@ -43,12 +43,12 @@ export function Knob({ value, min = 0, max = 1, size = 32, label, color = "#5aa7
   return (
     <div className="flex flex-col items-center gap-0.5 select-none" style={{ width: size }}>
       <svg width={size} height={size} onMouseDown={handleMouseDown} className="cursor-ns-resize block">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#303943" strokeWidth={2} />
+        <circle cx={cx} cy={cy} r={r} fill="#17191d" stroke="#3a424c" strokeWidth={2} />
         {pct > 0 && (
           <path d={`M ${sx} ${sy} A ${r} ${r} 0 ${largeArc} 1 ${ix} ${iy}`} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />
         )}
         <circle cx={ix} cy={iy} r={2} fill={color} />
-        <circle cx={cx} cy={cy} r={2.5} fill="#3d4854" />
+        <circle cx={cx} cy={cy} r={3} fill="#56616e" />
       </svg>
       {label && <span className="text-[10px] text-daw-faint">{label}</span>}
     </div>

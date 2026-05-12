@@ -34,5 +34,5 @@ self.onmessage = (e: MessageEvent<WorkerInput>) => {
   }
 
   const result: WaveformPeaks = { samplesPerPeak, channelCount, peaks };
-  self.postMessage({ fileId, peaks: result }, [peaks.buffer]);
+  self.postMessage({ fileId, peaks: result }, { transfer: [peaks.buffer] });
 };

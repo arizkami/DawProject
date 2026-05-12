@@ -1,4 +1,4 @@
-import type { DawClip, DawTrack } from "../types/daw";
+import type { DawTrack } from "../types/daw";
 import { audioEngine } from "./AudioEngine";
 import { mixer } from "./Mixer";
 import { transport } from "./Transport";

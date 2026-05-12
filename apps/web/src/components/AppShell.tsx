@@ -8,8 +8,8 @@ export function AppShell({ onImport }: { onImport?: () => void }) {
   const { inspectorOpen, mixerOpen } = useUIStore();
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-daw-bg">
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+    <div className="flex h-full flex-col -space-y-[1px] overflow-hidden bg-daw-bg">
+      <div className="flex min-h-0 flex-1 -space-x-[1px] overflow-hidden">
         <BrowserPanel onImport={onImport} />
         <Timeline />
         {inspectorOpen && <InspectorPanel />}

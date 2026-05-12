@@ -4,16 +4,10 @@ import { useTransportStore } from "../store/transportStore";
 import { useUIStore } from "../store/uiStore";
 import { transport } from "../engine/Transport";
 import { clipScheduler } from "../engine/ClipScheduler";
-
-function formatTime(t: number): string {
-  const m = Math.floor(t / 60);
-  const s = Math.floor(t % 60);
-  const ds = Math.floor((t % 1) * 10);
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${ds}`;
-}
+import { formatBarBeatTick } from "../utils/musicalTime";
 
 function Divider() {
-  return <div className="mx-0.5 h-6 w-px shrink-0 bg-daw-border" />;
+  return <div className="mx-1 h-7 w-px shrink-0 bg-daw-border" />;
 }
 
 function IconBtn({
@@ -23,11 +17,11 @@ function IconBtn({
   active?: boolean; accent?: boolean; danger?: boolean; disabled?: boolean; size?: number;
 }) {
   const cls = [
-    "flex h-7 w-7 shrink-0 items-center justify-center rounded border transition-colors disabled:opacity-30",
-    danger && active   ? "border-daw-red bg-daw-red text-daw-ink hover:bg-daw-red"
-    : accent && active ? "border-daw-accent bg-daw-accent text-daw-ink hover:bg-daw-accent-h"
-    : active           ? "border-daw-border-light bg-daw-surface-higher text-daw-text hover:bg-daw-border"
-    :                    "border-transparent bg-transparent text-daw-dim hover:border-daw-border hover:bg-daw-surface-high hover:text-daw-text",
+    "flex h-4 w-4 shrink-0 items-center justify-center rounded-lg  transition-colors disabled:opacity-30",
+    danger && active   ? "  text-daw-ink hover:bg-daw-red"
+    : accent && active ? " text-daw-ink hover:bg-daw-accent-h"
+    : active           ? "  text-daw-text hover:bg-daw-border"
+    :                    " text-daw-dim hover:border-daw-border-light hover:bg-daw-surface-high hover:text-daw-text",
   ].join(" ");
   return (
     <button onClick={onClick} disabled={disabled} title={label} className={cls}>
@@ -48,14 +42,11 @@ export function TransportBar({ onImport, onSave }: { onImport?: () => void; onSa
   const handleStop  = () => { transport.stop(() => { clipScheduler.cancelAll(); setIsPlaying(false); }); };
 
   return (
-    <div className="flex h-10 shrink-0 select-none items-center gap-1.5 border-b border-daw-border bg-daw-sunken px-2.5">
-      <div className="mr-1 flex min-w-48 shrink-0 items-center gap-2 border-r border-daw-border pr-2.5">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-daw-accent text-daw-ink">
-          <span className="text-[13px] font-black leading-none">M</span>
-        </div>
-        <div className="min-w-0">
-          <div className="truncate text-[13px] font-semibold text-daw-text">{project.name}</div>
-          <div className="text-[10px] text-daw-faint">Saved locally</div>
+    <div className="flex h-8 shrink-0 select-none items-center gap-2  border border-daw-border bg-daw-sunken px-3 shadow-[0_8px_24px_rgba(0,0,0,0.22)]">
+      <div className="mr-1 flex min-w-56 shrink-0 items-center gap-2 border-r border-daw-border pr-3">
+        <div className="min-w-0 flex items-center space-x-2">
+          <div className="truncate text-[11px] font-semibold text-daw-text">{project.name}</div>
+          <div className="text-[9px] text-daw-faint">Saved locally</div>
         </div>
       </div>
 
@@ -79,25 +70,25 @@ export function TransportBar({ onImport, onSave }: { onImport?: () => void; onSa
 
       <Divider />
 
-      <div className="flex h-7 min-w-[6.75rem] items-center justify-center rounded border border-daw-border bg-daw-bg px-2.5 text-[15px] font-semibold tabular-nums text-daw-green">
-        {formatTime(playheadTime)}
+      <div className="flex h-9 min-w-[7.75rem] items-center justify-center px-3 text-[14px] font-semibold tabular-nums text-daw-text">
+        {formatBarBeatTick(playheadTime, project.bpm)}
       </div>
 
       <Divider />
 
-      <div className="flex h-7 items-center gap-2 rounded border border-daw-border bg-daw-bg px-2">
-        <span className="text-[10px] font-medium text-daw-faint">BPM</span>
+      <div className="flex h-9 items-center gap-2 px-2.5">
+        <span className="text-[9px] font-medium text-daw-faint">BPM</span>
         <input
           type="number" min={20} max={300} value={project.bpm}
           onChange={(e) => setBpm(parseInt(e.target.value) || 120)}
-          className="w-10 border-none bg-transparent text-center text-[13px] font-semibold text-daw-text outline-none"
+          className="w-11 border-none bg-transparent text-center text-[11px] font-semibold text-daw-text outline-none"
         />
       </div>
 
-      <div className="flex h-7 items-center gap-1 rounded border border-daw-border bg-daw-bg px-2">
-        <span className="text-[13px] font-semibold text-daw-dim">4</span>
-        <div className="mx-0.5 h-3 w-px bg-daw-border" />
-        <span className="text-[13px] font-semibold text-daw-dim">4</span>
+      <div className="flex h-9 items-center gap-1 px-2.5">
+        <span className="text-[11px] font-semibold text-daw-dim">4</span>
+        <span className="opacity-20">/</span>
+        <span className="text-[11px] font-semibold text-daw-dim">4</span>
       </div>
 
       <div className="flex-1" />

@@ -82,7 +82,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-full flex-col bg-daw-bg text-daw-text">
+    <div className="flex h-full flex-col bg-daw-bg -space-y-[1px] text-daw-text">
       <input
         ref={fileInputRef}
         id="audio-import"
@@ -98,7 +98,7 @@ export default function App() {
         onSave={saveLocal}
       />
 
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1  overflow-hidden">
         <AppShell onImport={() => fileInputRef.current?.click()} />
       </div>
     </div>

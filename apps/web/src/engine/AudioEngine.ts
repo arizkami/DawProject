@@ -8,7 +8,6 @@ type LoadedBuffer = {
 class AudioEngine {
   private _ctx: AudioContext | null = null;
   private bufferCache = new Map<FileId, LoadedBuffer>();
-  private worker: Worker | null = null;
 
   get ctx(): AudioContext {
     if (!this._ctx) {
@@ -40,7 +39,10 @@ class AudioEngine {
       { type: "module" }
     );
 
-    worker.postMessage({ fileId: file.id, channelData, samplesPerPeak: 256 }, channelData.map((c) => c.buffer));
+    worker.postMessage(
+      { fileId: file.id, channelData, samplesPerPeak: 256 },
+      channelData.map((c) => c.buffer)
+    );
 
     worker.onmessage = (e: MessageEvent<{ fileId: FileId; peaks: WaveformPeaks }>) => {
       const { fileId, peaks } = e.data;
@@ -52,7 +54,14 @@ class AudioEngine {
       worker.terminate();
     };
 
-    this.bufferCache.set(file.id, { audioBuffer, peaks: { samplesPerPeak: 256, channelCount: audioBuffer.numberOfChannels, peaks: new Float32Array(0) } });
+    this.bufferCache.set(file.id, {
+      audioBuffer,
+      peaks: {
+        samplesPerPeak: 256,
+        channelCount: audioBuffer.numberOfChannels,
+        peaks: new Float32Array(0),
+      },
+    });
     return audioBuffer;
   }
 

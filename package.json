@@ -1,0 +1,15 @@
+{
+  "name": "mochi-daw",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "bun run --cwd apps/web dev",
+    "dev:server": "bun run --cwd apps/server dev",
+    "build:web": "bun run --cwd apps/web build",
+    "lint:web": "bun run --cwd apps/web lint"
+  }
+}
