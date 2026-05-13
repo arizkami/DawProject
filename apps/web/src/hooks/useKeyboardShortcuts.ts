@@ -2,9 +2,12 @@ import { useEffect } from "react";
 import { useProjectStore } from "../store/projectStore";
 import { useUIStore } from "../store/uiStore";
 import { useTransportStore } from "../store/transportStore";
+import { useMetronomeStore } from "../store/metronomeStore";
+import { useHistoryStore } from "../store/historyStore";
 import { transport } from "../engine/Transport";
 import { clipScheduler } from "../engine/ClipScheduler";
 import { beatsPerBar, secondsPerBeat } from "../utils/musicalTime";
+import { DeleteClipsCommand, DeleteTrackCommand, DuplicateClipsCommand, SplitClipCommand } from "../commands";
 
 function isTyping(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement;
@@ -27,16 +30,18 @@ export function useKeyboardShortcuts() {
       const {
         pixelsPerSecond,
         setPixelsPerSecond,
-        selectedClipId,
-        setSelectedClipId,
+        selectedClipIds,
+        setSelectedClipIds,
         toggleSnapToGrid,
         toggleMixer,
         toggleInspector,
         toggleLoop,
+        toggleCommandPalette,
       } = useUIStore.getState();
 
-      const { project, removeClip, saveLocal } = useProjectStore.getState();
+      const { project, saveLocal } = useProjectStore.getState();
       const { isPlaying, setIsPlaying } = useTransportStore.getState();
+      const history = useHistoryStore.getState();
       const timeSig = project.timeSignature ?? { numerator: 4, denominator: 4 };
       const spb = secondsPerBeat(project.bpm);
       const bpb = beatsPerBar(timeSig);
@@ -118,14 +123,24 @@ export function useKeyboardShortcuts() {
         // ── Edit ───────────────────────────────────────────────────────────
         case "Delete":
         case "Backspace": {
-          if (selectedClipId) {
-            removeClip(selectedClipId);
-            setSelectedClipId(null);
+          const { focusedPanel } = useUIStore.getState();
+          if (focusedPanel === "timeline" && selectedClipIds.length > 0) {
+            history.execute(new DeleteClipsCommand(selectedClipIds));
+            setSelectedClipIds([]);
+          } else if (focusedPanel === "timeline") {
+            const { selectedTrackId } = useUIStore.getState();
+            if (selectedTrackId) {
+              history.execute(new DeleteTrackCommand(selectedTrackId));
+              useUIStore.getState().setSelectedTrackId(null);
+              useUIStore.getState().setSelectedMixerTrackId(null);
+            }
           }
           break;
         }
         case "Escape": {
-          setSelectedClipId(null);
+          setSelectedClipIds([]);
+          useUIStore.getState().setSelectedTrackId(null);
+          useUIStore.getState().setSelectedMixerTrackId(null);
           break;
         }
         case "KeyS": {
@@ -134,20 +149,52 @@ export function useKeyboardShortcuts() {
           saveLocal();
           break;
         }
+        case "KeyX": {
+          if (!ctrl) {
+            e.preventDefault();
+            const { projectTime } = transport;
+            if (selectedClipIds.length > 0) {
+              selectedClipIds.forEach((id) => {
+                history.execute(new SplitClipCommand(id, projectTime));
+              });
+              setSelectedClipIds([]);
+            }
+          }
+          break;
+        }
+        case "KeyD": {
+          if (!ctrl) break;
+          e.preventDefault();
+          const { selectedClipIds: ids } = useUIStore.getState();
+          if (ids.length > 0) {
+            history.execute(new DuplicateClipsCommand(ids));
+          }
+          break;
+        }
         case "KeyZ": {
           if (!ctrl) break;
           e.preventDefault();
-          // Undo placeholder — prevents browser back navigation
+          history.undo();
           break;
         }
         case "KeyY": {
           if (!ctrl) break;
           e.preventDefault();
-          // Redo placeholder
+          history.redo();
           break;
         }
 
         // ── View toggles ───────────────────────────────────────────────────
+        case "KeyK": {
+          if (ctrl) {
+            e.preventDefault();
+            toggleCommandPalette();
+          } else {
+            const { toggle: toggleMetronome } = useMetronomeStore.getState();
+            toggleMetronome();
+          }
+          break;
+        }
         case "KeyM": {
           if (!ctrl) toggleMixer();
           break;

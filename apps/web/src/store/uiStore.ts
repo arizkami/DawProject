@@ -5,8 +5,10 @@ import { MIXER_HEIGHT } from "../theme";
 type UIStore = {
   pixelsPerSecond: number;
   scrollX: number;
-  selectedClipId: ClipId | null;
+  selectedClipIds: ClipId[];
   selectedTrackId: TrackId | null;
+  selectedMixerTrackId: TrackId | "master" | null;
+  focusedPanel: "timeline" | "mixer" | "browser" | "inspector" | null;
   masterVolume: number;
   inspectorOpen: boolean;
   mixerOpen: boolean;
@@ -20,8 +22,11 @@ type UIStore = {
   mixerFlexLayout: boolean;
   setPixelsPerSecond: (v: number) => void;
   setScrollX: (v: number) => void;
-  setSelectedClipId: (id: ClipId | null) => void;
+  setSelectedClipIds: (ids: ClipId[]) => void;
+  toggleClipSelection: (id: ClipId) => void;
   setSelectedTrackId: (id: TrackId | null) => void;
+  setSelectedMixerTrackId: (id: TrackId | "master" | null) => void;
+  setFocusedPanel: (panel: UIStore["focusedPanel"]) => void;
   setMasterVolume: (v: number) => void;
   toggleInspector: () => void;
   toggleMixer: () => void;
@@ -35,13 +40,19 @@ type UIStore = {
   // cross-track clip drag
   draggingClipTargetIdx: number | null;
   setDraggingClipTargetIdx: (idx: number | null) => void;
+  // command palette
+  commandPaletteOpen: boolean;
+  setCommandPaletteOpen: (open: boolean) => void;
+  toggleCommandPalette: () => void;
 };
 
 export const useUIStore = create<UIStore>((set) => ({
   pixelsPerSecond: 100,
   scrollX: 0,
-  selectedClipId: null,
+  selectedClipIds: [],
   selectedTrackId: null,
+  selectedMixerTrackId: null,
+  focusedPanel: "timeline",
   masterVolume: 1,
   inspectorOpen: true,
   mixerOpen: true,
@@ -54,8 +65,15 @@ export const useUIStore = create<UIStore>((set) => ({
   mixerFlexLayout: false,
   setPixelsPerSecond: (pixelsPerSecond) => set({ pixelsPerSecond }),
   setScrollX: (scrollX) => set({ scrollX }),
-  setSelectedClipId: (selectedClipId) => set({ selectedClipId }),
+  setSelectedClipIds: (selectedClipIds) => set({ selectedClipIds }),
+  toggleClipSelection: (id) => set((s) => ({
+    selectedClipIds: s.selectedClipIds.includes(id)
+      ? s.selectedClipIds.filter((x) => x !== id)
+      : [...s.selectedClipIds, id]
+  })),
   setSelectedTrackId: (selectedTrackId) => set({ selectedTrackId }),
+  setSelectedMixerTrackId: (selectedMixerTrackId) => set({ selectedMixerTrackId }),
+  setFocusedPanel: (focusedPanel) => set({ focusedPanel }),
   setMasterVolume: (masterVolume) => set({ masterVolume }),
   toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
   toggleMixer: () => set((s) => ({ mixerOpen: !s.mixerOpen })),
@@ -68,4 +86,7 @@ export const useUIStore = create<UIStore>((set) => ({
   toggleMixerFlexLayout: () => set((s) => ({ mixerFlexLayout: !s.mixerFlexLayout })),
   draggingClipTargetIdx: null,
   setDraggingClipTargetIdx: (draggingClipTargetIdx) => set({ draggingClipTargetIdx }),
+  commandPaletteOpen: false,
+  setCommandPaletteOpen: (commandPaletteOpen) => set({ commandPaletteOpen }),
+  toggleCommandPalette: () => set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen })),
 }));

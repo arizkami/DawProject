@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { mixer } from "../engine/Mixer";
 import { useProjectStore } from "../store/projectStore";
 import { useUIStore } from "../store/uiStore";
+import { useHistoryStore } from "../store/historyStore";
+import { AddTrackCommand } from "../commands";
 import { TRACK_COLORS } from "../theme";
 import type { DawTrack, TrackType } from "../types/daw";
 
@@ -52,7 +54,6 @@ const TRACK_TYPES: TrackTypeConfig[] = [
 
 export function AddTrackDialog({ onClose }: { onClose: () => void }) {
   const tracks = useProjectStore((s) => s.project.tracks);
-  const addTrack = useProjectStore((s) => s.addTrack);
   const setSelectedTrackId = useUIStore((s) => s.setSelectedTrackId);
   const nextNum = tracks.length + 1;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -91,8 +92,10 @@ export function AddTrackDialog({ onClose }: { onClose: () => void }) {
       armed: false,
       clips: [],
     };
+    // mixer node created inside AddTrackCommand.execute(), but we pre-create
+    // here so it's ready even on the first render tick
     mixer.getOrCreateTrack(id, track.volume, track.pan);
-    addTrack(track);
+    useHistoryStore.getState().execute(new AddTrackCommand(track));
     setSelectedTrackId(id);
     onClose();
   };

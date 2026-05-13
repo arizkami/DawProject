@@ -58,6 +58,11 @@ export type DawClip = {
   offset: number;
   duration: number;
   gain: number;
+  fadeIn?: number;
+  fadeOut?: number;
+  color?: string;
+  muted?: boolean;
+  locked?: boolean;
 };
 
 export type DawFile = {

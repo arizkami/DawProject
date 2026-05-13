@@ -27,7 +27,7 @@ type TimelineRulerProps = {
 export function TimelineRuler({ width, onAddTrack, snapToGrid, onToggleSnapToGrid }: TimelineRulerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef  = useRef<HTMLDivElement>(null);
-  const { pixelsPerSecond, scrollX } = useUIStore();
+  const { pixelsPerSecond, scrollX, loopEnabled, loopStart, loopEnd, setLoopStart, setLoopEnd } = useUIStore();
   const { bpm, timeSignature } = useProjectStore((s) => s.project);
   const timeSig: TimeSignature = timeSignature ?? { numerator: 4, denominator: 4 };
 
@@ -167,8 +167,73 @@ export function TimelineRuler({ width, onAddTrack, snapToGrid, onToggleSnapToGri
           bar.beat
         </span>
       </div>
-      <div ref={wrapRef} className="flex-1 overflow-hidden cursor-crosshair" onPointerDown={handlePointerDown}>
+      <div ref={wrapRef} className="flex-1 overflow-hidden cursor-crosshair relative" onPointerDown={handlePointerDown}>
         <canvas ref={canvasRef} className="block pointer-events-none" />
+
+        {/* Loop Region overlay */}
+        <div 
+          className="absolute top-0 bottom-0 pointer-events-none transition-colors"
+          style={{
+            left: loopStart * pixelsPerSecond - scrollX,
+            width: (loopEnd - loopStart) * pixelsPerSecond,
+            background: loopEnabled ? "rgba(123, 216, 143, 0.08)" : "rgba(255, 255, 255, 0.02)",
+            borderLeft: `1.5px solid ${loopEnabled ? "#7bd88f" : "rgba(255,255,255,0.2)"}`,
+            borderRight: `1.5px solid ${loopEnabled ? "#7bd88f" : "rgba(255,255,255,0.2)"}`,
+            zIndex: 10,
+          }}
+        />
+
+        {/* Loop Start Handle */}
+        <div
+          className="absolute top-0 w-3 h-3 cursor-ew-resize flex items-center justify-center z-20"
+          style={{ left: loopStart * pixelsPerSecond - scrollX - 0.75 }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            const startX = e.clientX;
+            const initialStart = loopStart;
+            const onMove = (ev: PointerEvent) => {
+              let newStart = Math.max(0, initialStart + (ev.clientX - startX) / pixelsPerSecond);
+              if (useUIStore.getState().snapToGrid) {
+                const spb = secondsPerBeat(bpm);
+                newStart = snapTime(newStart, bpm, timeSig, pixelsPerSecond * spb);
+              }
+              setLoopStart(Math.min(newStart, loopEnd - 0.1));
+            };
+            const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+            window.addEventListener("pointermove", onMove);
+            window.addEventListener("pointerup", onUp);
+          }}
+        >
+          <svg width="8" height="8" viewBox="0 0 8 8" className={`drop-shadow ${loopEnabled ? "text-[#7bd88f]" : "text-white/40"}`}>
+            <polygon points="0,0 8,0 8,8" fill="currentColor" />
+          </svg>
+        </div>
+
+        {/* Loop End Handle */}
+        <div
+          className="absolute top-0 w-3 h-3 cursor-ew-resize flex items-center justify-center z-20"
+          style={{ left: loopEnd * pixelsPerSecond - scrollX - 6 + 0.75 }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            const startX = e.clientX;
+            const initialEnd = loopEnd;
+            const onMove = (ev: PointerEvent) => {
+              let newEnd = Math.max(0, initialEnd + (ev.clientX - startX) / pixelsPerSecond);
+              if (useUIStore.getState().snapToGrid) {
+                const spb = secondsPerBeat(bpm);
+                newEnd = snapTime(newEnd, bpm, timeSig, pixelsPerSecond * spb);
+              }
+              setLoopEnd(Math.max(loopStart + 0.1, newEnd));
+            };
+            const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+            window.addEventListener("pointermove", onMove);
+            window.addEventListener("pointerup", onUp);
+          }}
+        >
+          <svg width="8" height="8" viewBox="0 0 8 8" className={`drop-shadow ${loopEnabled ? "text-[#7bd88f]" : "text-white/40"}`}>
+            <polygon points="0,0 8,0 0,8" fill="currentColor" />
+          </svg>
+        </div>
       </div>
     </div>
   );

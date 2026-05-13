@@ -35,7 +35,12 @@ type ProjectStore = {
   setTrackArmed: (trackId: TrackId, armed: boolean) => void;
   addClip: (trackId: TrackId, clip: DawClip) => void;
   moveClip: (clipId: string, trackId: TrackId, startTime: number) => void;
+  resizeClip: (clipId: string, trackId: TrackId, startTime: number, offset: number, duration: number) => void;
+  updateClip: (clipId: string, updates: Partial<DawClip>) => void;
   removeClip: (clipId: string) => void;
+  deleteClips: (clipIds: string[]) => void;
+  duplicateClips: (clipIds: string[]) => void;
+  splitClip: (clipId: string, time: number) => void;
   addFile: (file: DawFile) => void;
   moveClipToTrack: (clipId: string, toTrackId: TrackId, startTime: number) => void;
   setPeaks: (fileId: FileId, peaks: WaveformPeaks) => void;
@@ -136,6 +141,28 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       },
     })),
 
+  resizeClip: (clipId, _trackId, startTime, offset, duration) =>
+    set((s) => ({
+      project: {
+        ...s.project,
+        tracks: s.project.tracks.map((t) => ({
+          ...t,
+          clips: t.clips.map((c) => c.id === clipId ? { ...c, startTime, offset, duration } : c),
+        })),
+      },
+    })),
+
+  updateClip: (clipId, updates) =>
+    set((s) => ({
+      project: {
+        ...s.project,
+        tracks: s.project.tracks.map((t) => ({
+          ...t,
+          clips: t.clips.map((c) => c.id === clipId ? { ...c, ...updates } : c),
+        })),
+      },
+    })),
+
   removeClip: (clipId) =>
     set((s) => ({
       project: {
@@ -146,6 +173,68 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         })),
       },
     })),
+
+  deleteClips: (clipIds) =>
+    set((s) => {
+      const ids = new Set(clipIds);
+      return {
+        project: {
+          ...s.project,
+          tracks: s.project.tracks.map((t) => ({
+            ...t,
+            clips: t.clips.filter((c) => !ids.has(c.id)),
+          })),
+        },
+      };
+    }),
+
+  duplicateClips: (clipIds) =>
+    set((s) => {
+      const ids = new Set(clipIds);
+      return {
+        project: {
+          ...s.project,
+          tracks: s.project.tracks.map((t) => {
+            const newClips: DawClip[] = [];
+            for (const c of t.clips) {
+              if (ids.has(c.id)) {
+                newClips.push({ ...c, id: crypto.randomUUID(), startTime: c.startTime + c.duration });
+              }
+            }
+            return { ...t, clips: [...t.clips, ...newClips] };
+          }),
+        },
+      };
+    }),
+
+  splitClip: (clipId, time) =>
+    set((s) => {
+      return {
+        project: {
+          ...s.project,
+          tracks: s.project.tracks.map((t) => {
+            const idx = t.clips.findIndex((c) => c.id === clipId);
+            if (idx === -1) return t;
+            const c = t.clips[idx];
+            if (time <= c.startTime || time >= c.startTime + c.duration) return t; // Cannot split outside bounds
+            
+            const firstDuration = time - c.startTime;
+            const c1: DawClip = { ...c, duration: firstDuration };
+            const c2: DawClip = {
+              ...c,
+              id: crypto.randomUUID(),
+              startTime: time,
+              offset: c.offset + firstDuration,
+              duration: c.duration - firstDuration,
+            };
+            
+            const newClips = [...t.clips];
+            newClips.splice(idx, 1, c1, c2);
+            return { ...t, clips: newClips };
+          }),
+        },
+      };
+    }),
 
   addFile: (file) =>
     set((s) => ({ project: { ...s.project, files: [...s.project.files, file] } })),

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { AppShell } from "./components/AppShell";
 import { TransportBar } from "./components/TransportBar";
+import { CommandPalette } from "./components/ui/CommandPalette";
 import { audioEngine } from "./engine/AudioEngine";
 import { useProjectStore } from "./store/projectStore";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
@@ -63,6 +64,7 @@ export default function App() {
       <div className="min-h-0 flex-1  overflow-hidden">
         <AppShell onImport={() => fileInputRef.current?.click()} />
       </div>
+      <CommandPalette />
     </div>
   );
 }

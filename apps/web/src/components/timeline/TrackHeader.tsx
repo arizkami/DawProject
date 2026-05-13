@@ -1,4 +1,4 @@
-import { Cpu, GitMerge, Mic, Mic2, Music, Star, Volume2, VolumeX } from "lucide-react";
+import { Cpu, GitMerge, Mic, Mic2, Music, Star, Trash2, Volume2, VolumeX } from "lucide-react";
 import type { TrackType } from "../../types/daw";
 
 const TYPE_ICONS: Record<TrackType, React.ElementType> = {
@@ -11,6 +11,8 @@ const TYPE_ICONS: Record<TrackType, React.ElementType> = {
 import type { DawTrack } from "../../types/daw";
 import { useProjectStore } from "../../store/projectStore";
 import { useUIStore } from "../../store/uiStore";
+import { useHistoryStore } from "../../store/historyStore";
+import { SetTrackMuteCommand, SetTrackSoloCommand, SetTrackVolumeCommand, DeleteTrackCommand } from "../../commands";
 import { mixer } from "../../engine/Mixer";
 import { HEADER_WIDTH, TRACK_HEIGHT } from "../../theme";
 
@@ -41,7 +43,8 @@ function TrackBtn({ icon: Icon, active, activeColor, label, onClick }: {
 
 export function TrackHeader({ track, index }: { track: DawTrack; index: number }) {
   const { setTrackVolume, setTrackMute, setTrackSolo, setTrackArmed } = useProjectStore();
-  const { selectedTrackId, setSelectedTrackId } = useUIStore();
+  const { selectedTrackId, setSelectedTrackId, setSelectedClipIds, setFocusedPanel } = useUIStore();
+  const history = useHistoryStore.getState;
   const selected = selectedTrackId === track.id;
   const headerBg = selected ? "#252c35" : "#1c2028";
   const TypeIcon = TYPE_ICONS[track.type] ?? Mic2;
@@ -50,7 +53,11 @@ export function TrackHeader({ track, index }: { track: DawTrack; index: number }
 
   return (
     <div
-      onClick={() => setSelectedTrackId(track.id)}
+      onClick={() => {
+      setSelectedTrackId(track.id);
+      setSelectedClipIds([]);
+      setFocusedPanel("timeline");
+    }}
       className="sticky left-0 z-50 flex shrink-0 cursor-default border-r border-b border-daw-border transition-colors shadow-[6px_0_16px_rgba(0,0,0,0.32)]"
       style={{
         width: HEADER_WIDTH,
@@ -87,11 +94,17 @@ export function TrackHeader({ track, index }: { track: DawTrack; index: number }
 
           <div className="flex items-center gap-[3px]">
             <TrackBtn icon={VolumeX} active={track.muted}  activeColor="#f3c969" label="Mute"
-              onClick={() => { setTrackMute(track.id, !track.muted); mixer.setMute(track.id, !track.muted); }} />
+              onClick={() => useHistoryStore.getState().execute(new SetTrackMuteCommand(track.id, !track.muted))} />
             <TrackBtn icon={Star}    active={track.solo}   activeColor="#7bd88f" label="Solo"
-              onClick={() => { setTrackSolo(track.id, !track.solo); mixer.setSolo(track.id, !track.solo); }} />
+              onClick={() => useHistoryStore.getState().execute(new SetTrackSoloCommand(track.id, !track.solo))} />
             <TrackBtn icon={Mic}     active={track.armed}  activeColor="#f06a61" label="Arm"
               onClick={() => setTrackArmed(track.id, !track.armed)} />
+            <TrackBtn icon={Trash2}  active={false}        activeColor="#f06a61" label="Delete Track"
+              onClick={() => {
+                useHistoryStore.getState().execute(new DeleteTrackCommand(track.id));
+                useUIStore.getState().setSelectedTrackId(null);
+                useUIStore.getState().setSelectedMixerTrackId(null);
+              }} />
           </div>
 
           <span
@@ -110,8 +123,7 @@ export function TrackHeader({ track, index }: { track: DawTrack; index: number }
             onChange={(e) => {
               e.stopPropagation();
               const v = parseFloat(e.target.value);
-              setTrackVolume(track.id, v);
-              mixer.setVolume(track.id, v);
+              useHistoryStore.getState().execute(new SetTrackVolumeCommand(track.id, v, track.volume));
             }}
             className="daw-track-fader flex-1"
             style={{

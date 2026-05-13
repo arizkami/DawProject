@@ -15,6 +15,14 @@ export function Playhead() {
   useEffect(() => {
     const tick = () => {
       const t = transport.projectTime;
+      const { loopEnabled, loopStart, loopEnd } = useUIStore.getState();
+
+      if (transport.isPlaying && loopEnabled && t >= loopEnd) {
+        transport.seek(loopStart);
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
       const x = HEADER_WIDTH + t * pixelsPerSecond;
       if (lineRef.current) lineRef.current.style.transform = `translateX(${x}px)`;
       if (headRef.current) headRef.current.style.transform = `translateX(${x - 4}px)`;

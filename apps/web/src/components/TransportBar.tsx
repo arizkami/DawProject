@@ -20,6 +20,7 @@ import {
   SkipBack,
   Square,
   Trash2,
+  Timer,
   Undo2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -28,6 +29,7 @@ import { transport } from "../engine/Transport";
 import { APP_MENUS, type AppMenuGroup, type AppMenuItem } from "../menu/menuItems";
 import { useProjectStore } from "../store/projectStore";
 import { useTransportStore } from "../store/transportStore";
+import { useMetronomeStore } from "../store/metronomeStore";
 import { useUIStore } from "../store/uiStore";
 import { formatBarBeatTick } from "../utils/musicalTime";
 
@@ -218,6 +220,7 @@ export function TransportBar({ onImport, onSave }: { onImport?: () => void; onSa
     snapToGrid,
     toggleSnapToGrid,
   } = useUIStore();
+  const { enabled: metronomeEnabled, toggle: toggleMetronome } = useMetronomeStore();
 
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
@@ -375,6 +378,7 @@ export function TransportBar({ onImport, onSave }: { onImport?: () => void; onSa
           <IconBtn icon={Square} label="Stop [Enter]" onClick={handleStop} disabled={!isPlaying && playheadTime === 0} />
           <IconBtn icon={Circle} label="Record" accent danger size={12} />
           <IconBtn icon={Repeat2} label="Loop [L]" active={loopEnabled} onClick={toggleLoop} size={13} />
+          <IconBtn icon={Timer} label="Metronome [K]" active={metronomeEnabled} onClick={toggleMetronome} size={13} />
 
           <Divider />
 

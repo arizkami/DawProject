@@ -1,6 +1,8 @@
 import { audioEngine } from "../engine/AudioEngine";
 import { mixer } from "../engine/Mixer";
 import { useProjectStore } from "../store/projectStore";
+import { useHistoryStore } from "../store/historyStore";
+import { AddTrackCommand, AddClipCommand } from "../commands";
 import { getTrackColor } from "../theme";
 import type { DawClip, DawFile, DawTrack } from "../types/daw";
 
@@ -19,7 +21,8 @@ export async function importAudioFilesAsNewTracks(files: File[]): Promise<void> 
   if (audioFiles.length === 0) return;
 
   for (const f of audioFiles) {
-    const { addTrack, addFile, addClip, setPeaks, project } = useProjectStore.getState();
+    const { addFile, setPeaks, project } = useProjectStore.getState();
+    const history = useHistoryStore.getState();
     const arrayBuffer = await f.arrayBuffer();
     const fileId = crypto.randomUUID();
     const trackId = crypto.randomUUID();
@@ -69,8 +72,8 @@ export async function importAudioFilesAsNewTracks(files: File[]): Promise<void> 
 
       mixer.getOrCreateTrack(trackId, track.volume, track.pan);
       addFile(dawFile);
-      addTrack(track);
-      addClip(trackId, clip);
+      history.execute(new AddTrackCommand(track));
+      history.execute(new AddClipCommand(trackId, clip));
     } catch (err) {
       console.error("Failed to import", f.name, err);
       alert(`Could not import "${f.name}". The format may not be supported.`);

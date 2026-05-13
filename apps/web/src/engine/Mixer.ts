@@ -121,6 +121,10 @@ class Mixer {
     return this.getOrCreateTrack(trackId).gain;
   }
 
+  getMasterInput(): GainNode {
+    return this.master;
+  }
+
   // ── level metering ───────────────────────────────────────────────────────────
 
   /** Per-channel RMS (0–1) after panner. */

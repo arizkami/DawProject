@@ -1,4 +1,7 @@
 import { audioEngine } from "./AudioEngine";
+import { metronomeScheduler } from "./MetronomeScheduler";
+import { clipScheduler } from "./ClipScheduler";
+import { useProjectStore } from "../store/projectStore";
 
 export type PlayState = "stopped" | "playing" | "paused";
 
@@ -30,6 +33,7 @@ class Transport {
     this.transportStartAudioTime = audioEngine.currentTime;
     this.transportStartProjectTime = this._playheadTime;
     this._state = "playing";
+    metronomeScheduler.start();
     onPlay?.();
   }
 
@@ -37,11 +41,13 @@ class Transport {
     if (this._state !== "playing") return;
     this._playheadTime = this.projectTime;
     this._state = "paused";
+    metronomeScheduler.stop();
   }
 
   stop(onStop?: () => void) {
     this._playheadTime = 0;
     this._state = "stopped";
+    metronomeScheduler.stop();
     onStop?.();
   }
 
@@ -49,12 +55,16 @@ class Transport {
     const wasPlaying = this._state === "playing";
     if (wasPlaying) {
       this._state = "paused";
+      clipScheduler.cancelAll();
     }
     this._playheadTime = Math.max(0, time);
     if (wasPlaying) {
       this.transportStartAudioTime = audioEngine.currentTime;
       this.transportStartProjectTime = this._playheadTime;
       this._state = "playing";
+      const { project } = useProjectStore.getState();
+      clipScheduler.schedule(project.tracks);
+      metronomeScheduler.seek();
     }
   }
 }

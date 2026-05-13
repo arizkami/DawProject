@@ -26,6 +26,11 @@ export function TrackLane({ track, allTracks, trackIndex, width }: Props) {
 
   return (
     <div
+      onPointerDown={() => {
+        useUIStore.getState().setSelectedTrackId(track.id);
+        useUIStore.getState().setSelectedClipIds([]);
+        useUIStore.getState().setFocusedPanel("timeline");
+      }}
       className="relative min-w-0 flex-1 overflow-hidden border-b border-daw-border transition-colors"
       style={{
         height: TRACK_HEIGHT,

@@ -131,8 +131,8 @@ function ChannelStrip({
   onVolume, onPan,
   muted, solo, onMute, onSolo,
   fixedWidth, level, onResizeDragStart,
-  files,
-}: StripProps) {
+  files, selected, onClick,
+}: StripProps & { selected?: boolean; onClick?: () => void }) {
   const isMaster = !track;
   const accent = color;
   const vu = useVuStereoLevels(isMaster ? "master" : (track?.id ?? "master"));
@@ -150,8 +150,9 @@ function ChannelStrip({
 
   return (
     <section
-      className="relative flex h-full flex-col border-x border-white/[0.055] select-none"
-      style={{ ...style, background: isMaster ? "rgba(72,209,204,0.035)" : "rgba(255,255,255,0.016)" }}
+      onClick={onClick}
+      className={`relative flex h-full flex-col border-x border-white/[0.055] select-none ${selected ? "bg-white/[0.05]" : ""}`}
+      style={{ ...style, background: selected ? undefined : isMaster ? "rgba(72,209,204,0.035)" : "rgba(255,255,255,0.016)" }}
     >
       {/* top colour bar */}
       <div className="h-[2px] w-full shrink-0" style={{ background: accent }} />
@@ -279,6 +280,8 @@ export function MixerPanel() {
     mixerHeight, setMixerHeight,
     mixerChannelWidth, setMixerChannelWidth,
     mixerFlexLayout, toggleMixerFlexLayout,
+    selectedMixerTrackId, setSelectedMixerTrackId,
+    setSelectedTrackId, setFocusedPanel, setSelectedClipIds,
   } = useUIStore();
 
   // height resize — useRef so drag state survives re-renders
@@ -414,6 +417,13 @@ export function MixerPanel() {
             onMute={() => { setTrackMute(t.id, !t.muted); mixer.setMute(t.id, !t.muted); }}
             onSolo={() => { setTrackSolo(t.id, !t.solo); mixer.setSolo(t.id, !t.solo); }}
             onResizeDragStart={onStripResizeDragStart}
+            selected={selectedMixerTrackId === t.id}
+            onClick={() => {
+              setSelectedMixerTrackId(t.id);
+              setSelectedTrackId(t.id);
+              setSelectedClipIds([]);
+              setFocusedPanel("mixer");
+            }}
           />
         ))}
 
@@ -428,6 +438,13 @@ export function MixerPanel() {
           files={files}
           onVolume={(v) => { setMasterVolume(v); mixer.setMasterVolume(v); }}
           onResizeDragStart={onStripResizeDragStart}
+          selected={selectedMixerTrackId === "master"}
+          onClick={() => {
+            setSelectedMixerTrackId("master");
+            setSelectedTrackId(null);
+            setSelectedClipIds([]);
+            setFocusedPanel("mixer");
+          }}
         />
       </div>
     </div>
