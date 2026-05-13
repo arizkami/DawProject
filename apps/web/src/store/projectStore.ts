@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DawClip, DawFile, DawProject, DawTrack, FileId, TimeSignature, TrackId, WaveformPeaks } from "../types/daw";
+import type { DawClip, DawFile, DawProject, DawTrack, FileId, TimeSignature, TrackId, WaveformPeaks, WaveformStatus } from "../types/daw";
 
 const STORAGE_KEY = "mochi-daw-project";
 
@@ -17,10 +17,12 @@ function defaultProject(): DawProject {
 }
 
 type PeakCache = Map<FileId, WaveformPeaks>;
+type WaveformStatusMap = Map<FileId, WaveformStatus>;
 
 type ProjectStore = {
   project: DawProject;
   peakCache: PeakCache;
+  waveformStatus: WaveformStatusMap;
 
   setProjectName: (name: string) => void;
   setBpm: (bpm: number) => void;
@@ -33,6 +35,8 @@ type ProjectStore = {
   setTrackMute: (trackId: TrackId, muted: boolean) => void;
   setTrackSolo: (trackId: TrackId, solo: boolean) => void;
   setTrackArmed: (trackId: TrackId, armed: boolean) => void;
+  setTrackColor: (trackId: TrackId, color: string) => void;
+  reorderTracks: (activeTrackId: TrackId, overTrackId: TrackId) => void;
   addClip: (trackId: TrackId, clip: DawClip) => void;
   moveClip: (clipId: string, trackId: TrackId, startTime: number) => void;
   resizeClip: (clipId: string, trackId: TrackId, startTime: number, offset: number, duration: number) => void;
@@ -44,6 +48,7 @@ type ProjectStore = {
   addFile: (file: DawFile) => void;
   moveClipToTrack: (clipId: string, toTrackId: TrackId, startTime: number) => void;
   setPeaks: (fileId: FileId, peaks: WaveformPeaks) => void;
+  setWaveformStatus: (fileId: FileId, status: WaveformStatus) => void;
   saveLocal: () => void;
   loadLocal: () => void;
 };
@@ -51,6 +56,7 @@ type ProjectStore = {
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   project: defaultProject(),
   peakCache: new Map(),
+  waveformStatus: new Map(),
 
   setProjectName: (name) =>
     set((s) => ({ project: { ...s.project, name } })),
@@ -119,6 +125,26 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         tracks: s.project.tracks.map((t) => t.id === trackId ? { ...t, armed } : t),
       },
     })),
+
+  setTrackColor: (trackId, color) =>
+    set((s) => ({
+      project: {
+        ...s.project,
+        tracks: s.project.tracks.map((t) => t.id === trackId ? { ...t, color } : t),
+      },
+    })),
+
+  reorderTracks: (activeTrackId, overTrackId) =>
+    set((s) => {
+      const tracks = s.project.tracks;
+      const oldIndex = tracks.findIndex((t) => t.id === activeTrackId);
+      const newIndex = tracks.findIndex((t) => t.id === overTrackId);
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return s;
+      const next = tracks.slice();
+      const [moved] = next.splice(oldIndex, 1);
+      next.splice(newIndex, 0, moved);
+      return { project: { ...s.project, tracks: next } };
+    }),
 
   addClip: (trackId, clip) =>
     set((s) => ({
@@ -263,7 +289,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set((s) => {
       const next = new Map(s.peakCache);
       next.set(fileId, peaks);
-      return { peakCache: next };
+      const status = new Map(s.waveformStatus);
+      status.set(fileId, "ready");
+      return { peakCache: next, waveformStatus: status };
+    }),
+
+  setWaveformStatus: (fileId, status) =>
+    set((s) => {
+      const next = new Map(s.waveformStatus);
+      next.set(fileId, status);
+      return { waveformStatus: next };
     }),
 
   saveLocal: () => {

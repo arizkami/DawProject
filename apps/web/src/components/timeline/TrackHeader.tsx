@@ -1,4 +1,5 @@
-import { Cpu, GitMerge, Mic, Mic2, Music, Star, Trash2, Volume2, VolumeX } from "lucide-react";
+import { Cpu, GitMerge, GripVertical, Mic, Mic2, Music, Star, Trash2, Volume2, VolumeX } from "lucide-react";
+import type { HTMLAttributes } from "react";
 import type { TrackType } from "../../types/daw";
 
 const TYPE_ICONS: Record<TrackType, React.ElementType> = {
@@ -14,6 +15,7 @@ import { useUIStore } from "../../store/uiStore";
 import { useHistoryStore } from "../../store/historyStore";
 import { SetTrackMuteCommand, SetTrackSoloCommand, SetTrackVolumeCommand, DeleteTrackCommand } from "../../commands";
 import { HEADER_WIDTH, TRACK_HEIGHT } from "../../theme";
+import { buildTrackContextMenu } from "../../menu/trackContextMenu";
 
 function volumeToDb(v: number) {
   if (v <= 0.001) return "-∞";
@@ -47,7 +49,26 @@ function TrackBtn({ icon: Icon, active, activeColor, label, onClick }: {
   );
 }
 
-export function TrackHeader({ track, index }: { track: DawTrack; index: number }) {
+type DragHandleProps = HTMLAttributes<HTMLDivElement> & {
+  role?: string;
+  tabIndex?: number;
+  "aria-describedby"?: string;
+  "aria-pressed"?: boolean | "false" | "true" | "mixed";
+  "aria-roledescription"?: string;
+  "aria-disabled"?: boolean;
+};
+
+export function TrackHeader({
+  track,
+  index,
+  dragHandleProps,
+  isDragging,
+}: {
+  track: DawTrack;
+  index: number;
+  dragHandleProps?: DragHandleProps;
+  isDragging?: boolean;
+}) {
   const { setTrackArmed } = useProjectStore();
   const { selectedTrackId, setSelectedTrackId, setSelectedClipIds, setFocusedPanel } = useUIStore();
   const selected = selectedTrackId === track.id;
@@ -67,14 +88,7 @@ export function TrackHeader({ track, index }: { track: DawTrack; index: number }
         e.preventDefault();
         setSelectedTrackId(track.id);
         setFocusedPanel("timeline");
-        useUIStore.getState().setContextMenu(true, { x: e.clientX, y: e.clientY }, [
-          {
-            id: "ctx.delete_track",
-            label: "Delete Track",
-            danger: true,
-            action: "edit:delete-track"
-          }
-        ]);
+        useUIStore.getState().setContextMenu(true, { x: e.clientX, y: e.clientY }, buildTrackContextMenu(track));
       }}
       className="sticky left-0 z-50 flex shrink-0 cursor-default overflow-hidden border-r border-b border-daw-border transition-colors shadow-[6px_0_16px_rgba(0,0,0,0.32)]"
       style={{
@@ -95,6 +109,21 @@ export function TrackHeader({ track, index }: { track: DawTrack; index: number }
       <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-1.5 overflow-hidden px-2.5 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div
+              {...(dragHandleProps ?? {})}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                dragHandleProps?.onPointerDown?.(e);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              title="Drag to reorder"
+              className={`flex h-7 w-3 shrink-0 items-center justify-center rounded-sm text-daw-faint transition-colors hover:bg-white/[0.06] hover:text-daw-dim ${
+                isDragging ? "cursor-grabbing text-daw-text" : "cursor-grab"
+              }`}
+              style={{ touchAction: "none" }}
+            >
+              <GripVertical size={12} />
+            </div>
             <div
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border"
               style={{

@@ -5,6 +5,7 @@ export type AppMenuItem =
       label: string;
       accelerator?: string;
       icon?: string;
+      dot?: string;       // CSS color for a small dot prefix (e.g. track colors)
       enabled?: boolean;
       checked?: boolean;
       danger?: boolean;

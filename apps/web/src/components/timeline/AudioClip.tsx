@@ -31,8 +31,11 @@ export function AudioClip({ clip, track, trackIndex, allTracks }: Props) {
     selectedClipIds, setSelectedClipIds, toggleClipSelection,
     setSelectedTrackId, setFocusedPanel, setDraggingClipTargetIdx,
   } = useUIStore();
-  const { peakCache, moveClip, moveClipToTrack, project } = useProjectStore();
+  const { peakCache, waveformStatus, moveClip, moveClipToTrack, project } = useProjectStore();
   const peaks = peakCache.get(clip.fileId);
+  const sourceFile = project.files.find((f) => f.id === clip.fileId);
+  const status = waveformStatus.get(clip.fileId)
+    ?? (peaks && peaks.peaks.length > 0 ? "ready" : sourceFile ? "loading" : "error");
 
   const dragStartX    = useRef(0);
   const dragStartY    = useRef(0);
@@ -252,12 +255,19 @@ export function AudioClip({ clip, track, trackIndex, allTracks }: Props) {
       <div className="relative overflow-hidden" style={{ height: waveH, background: hex2rgba(color, 0.19) }}>
         <div className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-white/20" />
         <div className="pointer-events-none absolute inset-y-0 right-0 w-1.5 bg-black/20" />
-        {peaks
-          ? <WaveformCanvas peaks={peaks} width={width} height={waveH} color={hex2rgba(color, 0.95)} />
-          : <div className="flex h-full items-center justify-center text-[9px]" style={{ color: hex2rgba(color, 0.55) }}>
-              {project.files.some(f => f.id === clip.fileId) ? "Generating…" : "Missing File"}
-            </div>
-        }
+        <WaveformCanvas
+          peaks={peaks}
+          width={width}
+          height={waveH}
+          color={hex2rgba(color, 0.95)}
+          sourceDuration={sourceFile?.duration ?? peaks?.duration}
+          sampleRate={sourceFile?.sampleRate ?? peaks?.sampleRate}
+          clipOffset={clip.offset}
+          clipDuration={clip.duration}
+          muted={!!clip.muted || track.muted}
+          selected={selected}
+          status={status}
+        />
       </div>
 
       {/* Resize handles */}

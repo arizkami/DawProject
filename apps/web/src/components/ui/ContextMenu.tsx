@@ -3,22 +3,32 @@ import { useUIStore } from "../../store/uiStore";
 import { runAction } from "../../menu/actionRunner";
 import type { AppMenuItem } from "../../menu/menuItems";
 
+// ── Item renderer ─────────────────────────────────────────────────────────────
+
 function MenuItem({ item, onClose }: { item: AppMenuItem; onClose: () => void }) {
   if (item.type === "separator") {
     return <div className="mx-2 my-1 h-[1px] bg-white/[0.05]" />;
   }
 
   if (item.type === "submenu") {
-    // Nested context menus are complex; just rendering it differently for now, 
-    // or we can build a nested popover mechanism later.
+    const disabled = item.enabled === false;
     return (
       <div className="group relative">
         <button
-          className="flex w-full items-center justify-between rounded px-3 py-1.5 text-left text-[12px] font-medium text-daw-text hover:bg-daw-accent hover:text-white"
+          disabled={disabled}
+          className="flex w-full items-center justify-between rounded px-3 py-1.5 text-left text-[12px] font-medium text-daw-text hover:bg-daw-accent hover:text-white disabled:cursor-default disabled:text-daw-faint disabled:opacity-50"
         >
           <span>{item.label}</span>
-          <span className="text-daw-faint group-hover:text-white/70">▶</span>
+          <span className="text-[9px] text-daw-faint group-hover:text-white/70">▶</span>
         </button>
+
+        {!disabled && (
+          <div className="invisible group-hover:visible absolute left-full top-0 z-[1001] ml-1 min-w-[160px] rounded-lg border border-white/[0.08] bg-[#1a1e26] p-1 shadow-[0_4px_16px_rgba(0,0,0,0.4),0_0_0_1px_rgba(0,0,0,0.5)]">
+            {item.children.map((child, ci) => (
+              <MenuItem key={`${child.id}-${ci}`} item={child} onClose={onClose} />
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -27,12 +37,14 @@ function MenuItem({ item, onClose }: { item: AppMenuItem; onClose: () => void })
 
   return (
     <button
+      disabled={disabled}
       className={[
-        "flex w-full items-center justify-between rounded px-3 py-1.5 text-left text-[12px] font-medium transition-colors",
+        "flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-[12px] font-medium transition-colors",
         disabled
           ? "cursor-default text-daw-faint opacity-50"
-          : "text-daw-text hover:bg-daw-accent hover:text-white",
-        item.danger && !disabled ? "text-daw-red hover:bg-daw-red" : "",
+          : item.danger
+            ? "text-daw-red hover:bg-daw-red hover:text-white"
+            : "text-daw-text hover:bg-daw-accent hover:text-white",
       ].join(" ")}
       onClick={() => {
         if (disabled) return;
@@ -40,7 +52,13 @@ function MenuItem({ item, onClose }: { item: AppMenuItem; onClose: () => void })
         onClose();
       }}
     >
-      <span className="truncate">{item.label}</span>
+      {item.dot && (
+        <span
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ background: item.dot }}
+        />
+      )}
+      <span className="flex-1 truncate">{item.label}</span>
       {item.accelerator && (
         <span className="ml-4 shrink-0 text-[10px] tracking-wide text-daw-dim opacity-70">
           {item.accelerator}
@@ -49,6 +67,8 @@ function MenuItem({ item, onClose }: { item: AppMenuItem; onClose: () => void })
     </button>
   );
 }
+
+// ── Root ContextMenu ──────────────────────────────────────────────────────────
 
 export function ContextMenu() {
   const { contextMenuOpen, contextMenuPosition, contextMenuItems, setContextMenu } = useUIStore();
@@ -62,18 +82,12 @@ export function ContextMenu() {
         setContextMenu(false);
       }
     };
-    
-    // Close on escape
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setContextMenu(false);
-      }
+      if (e.key === "Escape") setContextMenu(false);
     };
 
-    // Use capturing phase so we can close before other elements handle the click
     window.addEventListener("pointerdown", onPointerDown, { capture: true });
     window.addEventListener("keydown", onKeyDown);
-    
     return () => {
       window.removeEventListener("pointerdown", onPointerDown, { capture: true });
       window.removeEventListener("keydown", onKeyDown);
@@ -82,14 +96,14 @@ export function ContextMenu() {
 
   if (!contextMenuOpen || contextMenuItems.length === 0) return null;
 
-  // Simple boundary collision detection
-  const x = Math.min(contextMenuPosition.x, window.innerWidth - 200); // approx 200px max width
-  const y = Math.min(contextMenuPosition.y, window.innerHeight - 300); // approx max height
+  // Keep the menu on-screen; leave 220px clearance on right for submenus
+  const x = Math.min(contextMenuPosition.x, window.innerWidth - 220);
+  const y = Math.min(contextMenuPosition.y, window.innerHeight - 320);
 
   return (
     <div
       ref={menuRef}
-      className="fixed z-[1000] flex min-w-[180px] flex-col rounded-lg border border-white/[0.08] bg-[#1a1e26] p-1 shadow-[0_4px_16px_rgba(0,0,0,0.4),0_0_0_1px_rgba(0,0,0,0.5)] app-no-drag"
+      className="fixed z-[1000] flex min-w-[190px] flex-col rounded-lg border border-white/[0.08] bg-[#1a1e26] p-1 shadow-[0_4px_16px_rgba(0,0,0,0.4),0_0_0_1px_rgba(0,0,0,0.5)] app-no-drag"
       style={{ left: x, top: y }}
       onContextMenu={(e) => e.preventDefault()}
     >

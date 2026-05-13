@@ -15,11 +15,12 @@ export function isImportableAudioFile(file: File): boolean {
 
 export async function decodeAndAddAudioFile(file: File): Promise<DawFile | null> {
   if (!isImportableAudioFile(file)) return null;
-  const { addFile, setPeaks } = useProjectStore.getState();
+  const { addFile, setPeaks, setWaveformStatus } = useProjectStore.getState();
   const arrayBuffer = await file.arrayBuffer();
   const fileId = crypto.randomUUID();
 
   try {
+    setWaveformStatus(fileId, "loading");
     const audioBuffer = await audioEngine.loadBuffer(
       { id: fileId, name: file.name, mimeType: file.type, duration: 0, sampleRate: 48000, channels: 2 },
       arrayBuffer,
@@ -40,6 +41,7 @@ export async function decodeAndAddAudioFile(file: File): Promise<DawFile | null>
     return dawFile;
   } catch (err) {
     console.error("Failed to import", file.name, err);
+    setWaveformStatus(fileId, "error");
     alert(`Could not import "${file.name}". The format may not be supported.`);
     return null;
   }

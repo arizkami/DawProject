@@ -82,6 +82,63 @@ export class RenameTrackCommand implements DawCommand {
   undo()    { store().setTrackName(this.trackId, this.oldName); }
 }
 
+export class SetTrackColorCommand implements DawCommand {
+  readonly label = "Change Track Color";
+  private trackId: string;
+  private newColor: string;
+  private oldColor: string;
+
+  constructor(trackId: string, newColor: string, oldColor: string) {
+    this.trackId = trackId;
+    this.newColor = newColor;
+    this.oldColor = oldColor;
+  }
+  execute() { store().setTrackColor(this.trackId, this.newColor); }
+  undo()    { store().setTrackColor(this.trackId, this.oldColor); }
+}
+
+export class DuplicateTrackCommand implements DawCommand {
+  readonly label = "Duplicate Track";
+  private originalTrackId: string;
+  private newTrackId: string;
+  private newTrackSnapshot: DawTrack | null = null;
+  
+  constructor(trackId: string) {
+    this.originalTrackId = trackId;
+    this.newTrackId = crypto.randomUUID();
+  }
+
+  execute() {
+    if (this.newTrackSnapshot) {
+      store().addTrack(this.newTrackSnapshot);
+      mixer.getOrCreateTrack(this.newTrackSnapshot.id, this.newTrackSnapshot.volume, this.newTrackSnapshot.pan);
+      return;
+    }
+
+    const t = store().project.tracks.find(x => x.id === this.originalTrackId);
+    if (!t) return;
+    
+    const newTrack: DawTrack = {
+      ...t,
+      id: this.newTrackId,
+      name: t.name + " (Copy)",
+      clips: t.clips.map(c => ({
+        ...c,
+        id: crypto.randomUUID(),
+        trackId: this.newTrackId
+      }))
+    };
+    
+    this.newTrackSnapshot = newTrack;
+    store().addTrack(newTrack);
+    mixer.getOrCreateTrack(newTrack.id, newTrack.volume, newTrack.pan);
+  }
+  
+  undo() {
+    store().removeTrack(this.newTrackId);
+  }
+}
+
 export class SetTrackVolumeCommand implements DawCommand {
   readonly label = "Set Track Volume";
   private trackId: string;

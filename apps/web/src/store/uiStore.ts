@@ -1,7 +1,21 @@
 import { create } from "zustand";
 import type { ClipId, TrackId } from "../types/daw";
 import type { AppMenuItem } from "../menu/menuItems";
-import { MIXER_HEIGHT } from "../theme";
+import { MIXER_HEIGHT, BROWSER_WIDTH, INSPECTOR_WIDTH } from "../theme";
+
+export type PanelDock = "left" | "right" | "bottom" | "float";
+export type BottomPanelTab = "mixer" | "editor" | "effect-editor";
+export type PanelSizing = "fixed" | "flex";
+
+export type PanelLayout = {
+  id: string;
+  visible: boolean;
+  dock: PanelDock;
+  sizing: PanelSizing;
+  size: number;
+  minSize: number;
+  maxSize: number;
+};
 
 type UIStore = {
   pixelsPerSecond: number;
@@ -11,16 +25,20 @@ type UIStore = {
   selectedMixerTrackId: TrackId | "master" | null;
   focusedPanel: "timeline" | "mixer" | "browser" | "inspector" | null;
   masterVolume: number;
-  inspectorOpen: boolean;
-  mixerOpen: boolean;
+  panels: Record<string, PanelLayout>;
+  setPanelLayout: (id: string, layout: Partial<PanelLayout>) => void;
+  togglePanel: (id: string) => void;
+  applyWorkspaceLayout: (layoutName: string) => void;
   snapToGrid: boolean;
   loopEnabled: boolean;
   loopStart: number;
   loopEnd: number;
   // Mixer layout
-  mixerHeight: number;
   mixerChannelWidth: number;
   mixerFlexLayout: boolean;
+  // Bottom workspace tabs
+  bottomPanelTab: BottomPanelTab;
+  setBottomPanelTab: (tab: BottomPanelTab) => void;
   setPixelsPerSecond: (v: number) => void;
   setScrollX: (v: number) => void;
   setSelectedClipIds: (ids: ClipId[]) => void;
@@ -29,13 +47,10 @@ type UIStore = {
   setSelectedMixerTrackId: (id: TrackId | "master" | null) => void;
   setFocusedPanel: (panel: UIStore["focusedPanel"]) => void;
   setMasterVolume: (v: number) => void;
-  toggleInspector: () => void;
-  toggleMixer: () => void;
   toggleSnapToGrid: () => void;
   toggleLoop: () => void;
   setLoopStart: (seconds: number) => void;
   setLoopEnd: (seconds: number) => void;
-  setMixerHeight: (h: number) => void;
   setMixerChannelWidth: (w: number) => void;
   toggleMixerFlexLayout: () => void;
   // cross-track clip drag
@@ -60,8 +75,41 @@ export const useUIStore = create<UIStore>((set) => ({
   selectedMixerTrackId: null,
   focusedPanel: "timeline",
   masterVolume: 1,
-  inspectorOpen: true,
-  mixerOpen: true,
+  panels: {
+    browser: { id: "browser", visible: true, dock: "left", sizing: "fixed", size: BROWSER_WIDTH, minSize: 200, maxSize: 400 },
+    inspector: { id: "inspector", visible: true, dock: "right", sizing: "fixed", size: INSPECTOR_WIDTH, minSize: 240, maxSize: 500 },
+    mixer: { id: "mixer", visible: true, dock: "bottom", sizing: "fixed", size: MIXER_HEIGHT, minSize: 160, maxSize: 600 },
+  },
+  setPanelLayout: (id, layout) => set((s) => ({
+    panels: { ...s.panels, [id]: { ...s.panels[id], ...layout } }
+  })),
+  togglePanel: (id) => set((s) => {
+    const p = s.panels[id];
+    if (!p) return s;
+    return { panels: { ...s.panels, [id]: { ...p, visible: !p.visible } } };
+  }),
+  applyWorkspaceLayout: (layoutName) => set((s) => {
+    const p = { ...s.panels };
+    // Reset defaults first
+    Object.keys(p).forEach(k => p[k].visible = true);
+    if (layoutName === "Editing") {
+      if (p.mixer) p.mixer.visible = false;
+    } else if (layoutName === "Mixing") {
+      if (p.browser) p.browser.visible = false;
+      if (p.mixer) { p.mixer.visible = true; p.mixer.size = 360; }
+    } else if (layoutName === "Sound Design") {
+      if (p.browser) p.browser.visible = true;
+      if (p.inspector) p.inspector.visible = true;
+      if (p.mixer) p.mixer.visible = true;
+    } else if (layoutName === "Minimal") {
+      if (p.browser) p.browser.visible = false;
+      if (p.inspector) p.inspector.visible = false;
+      if (p.mixer) p.mixer.visible = false;
+    } else if (layoutName === "Laptop") {
+      if (p.browser) p.browser.visible = false;
+    }
+    return { panels: p };
+  }),
   snapToGrid: true,
   loopEnabled: false,
   loopStart: 0,
@@ -69,6 +117,8 @@ export const useUIStore = create<UIStore>((set) => ({
   mixerHeight: MIXER_HEIGHT,
   mixerChannelWidth: 88,
   mixerFlexLayout: false,
+  bottomPanelTab: "mixer",
+  setBottomPanelTab: (bottomPanelTab) => set({ bottomPanelTab }),
   setPixelsPerSecond: (pixelsPerSecond) => set({ pixelsPerSecond }),
   setScrollX: (scrollX) => set({ scrollX }),
   setSelectedClipIds: (selectedClipIds) => set({ selectedClipIds }),
@@ -81,13 +131,10 @@ export const useUIStore = create<UIStore>((set) => ({
   setSelectedMixerTrackId: (selectedMixerTrackId) => set({ selectedMixerTrackId }),
   setFocusedPanel: (focusedPanel) => set({ focusedPanel }),
   setMasterVolume: (masterVolume) => set({ masterVolume }),
-  toggleInspector: () => set((s) => ({ inspectorOpen: !s.inspectorOpen })),
-  toggleMixer: () => set((s) => ({ mixerOpen: !s.mixerOpen })),
   toggleSnapToGrid: () => set((s) => ({ snapToGrid: !s.snapToGrid })),
   toggleLoop: () => set((s) => ({ loopEnabled: !s.loopEnabled })),
   setLoopStart: (loopStart) => set({ loopStart }),
   setLoopEnd: (loopEnd) => set({ loopEnd }),
-  setMixerHeight: (mixerHeight) => set({ mixerHeight: Math.max(160, Math.min(520, mixerHeight)) }),
   setMixerChannelWidth: (mixerChannelWidth) => set({ mixerChannelWidth: Math.max(72, Math.min(180, mixerChannelWidth)) }),
   toggleMixerFlexLayout: () => set((s) => ({ mixerFlexLayout: !s.mixerFlexLayout })),
   draggingClipTargetIdx: null,

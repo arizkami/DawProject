@@ -1,6 +1,6 @@
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { TimelineGrid } from "./TimelineGrid";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AddTrackDialog } from "../AddTrackDialog";
 import { TimelineRuler } from "./TimelineRuler";
 import { TrackList } from "./TrackList";
@@ -8,7 +8,7 @@ import { Playhead } from "./Playhead";
 import { useUIStore } from "../../store/uiStore";
 import { useProjectStore } from "../../store/projectStore";
 import { secondsPerBeat, snapTime } from "../../utils/musicalTime";
-import { importAudioFilesAsNewTracks, decodeAndAddAudioFile, addFileToTimeline } from "../../utils/importAudioToProject";
+import { decodeAndAddAudioFile, addFileToTimeline } from "../../utils/importAudioToProject";
 import { TRACK_HEIGHT, HEADER_WIDTH } from "../../theme";
 
 const MIN_PPS = 10;
@@ -27,9 +27,15 @@ export function Timeline() {
     return types.includes("Files") || types.includes("application/x-mochi-file-id");
   };
 
+  const resetDragState = useCallback(() => {
+    fileDragDepth.current = 0;
+    setDropHighlight(false);
+  }, []);
+
   const onTimelineDragEnter = (e: React.DragEvent) => {
     if (!isFileDrag(e)) return;
     e.preventDefault();
+    e.stopPropagation();
     fileDragDepth.current += 1;
     setDropHighlight(true);
   };
@@ -37,56 +43,94 @@ export function Timeline() {
   const onTimelineDragLeave = (e: React.DragEvent) => {
     if (!isFileDrag(e)) return;
     e.preventDefault();
-    fileDragDepth.current -= 1;
-    if (fileDragDepth.current <= 0) {
-      fileDragDepth.current = 0;
-      setDropHighlight(false);
-    }
+    e.stopPropagation();
+    // Ignore leaves between children that still land on a descendant of the drop zone.
+    const next = e.relatedTarget as Node | null;
+    if (next && e.currentTarget.contains(next)) return;
+    fileDragDepth.current = Math.max(0, fileDragDepth.current - 1);
+    if (fileDragDepth.current === 0) setDropHighlight(false);
   };
 
   const onTimelineDragOver = (e: React.DragEvent) => {
     if (!isFileDrag(e)) return;
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = "copy";
+    if (!dropHighlight) setDropHighlight(true);
   };
 
   const onTimelineDrop = async (e: React.DragEvent) => {
-    if (!isFileDrag(e)) return;
-    e.preventDefault();
-    fileDragDepth.current = 0;
-    setDropHighlight(false);
-
-    // Calculate drop time relative to the scroll container
-    // We must offset by HEADER_WIDTH because the timeline tracks start after the track headers
-    let time = 0;
-    if (scrollRef.current) {
-      const rect = scrollRef.current.getBoundingClientRect();
-      const dropX = e.clientX - rect.left - HEADER_WIDTH + scrollRef.current.scrollLeft;
-      time = Math.max(0, dropX / pixelsPerSecond);
-      if (snapToGrid) {
-        const spb = secondsPerBeat(bpm);
-        time = snapTime(time, bpm, useProjectStore.getState().project.timeSignature ?? { numerator: 4, denominator: 4 }, pixelsPerSecond * spb);
-      }
-    }
-
-    const hasMochiFile = e.dataTransfer.types.includes("application/x-mochi-file-id");
-    if (hasMochiFile) {
-      const fileId = e.dataTransfer.getData("application/x-mochi-file-id");
-      const dawFile = useProjectStore.getState().project.files.find(f => f.id === fileId);
-      if (dawFile) addFileToTimeline(dawFile, time); // No trackId -> creates new track
+    if (!isFileDrag(e)) {
+      resetDragState();
       return;
     }
+    e.preventDefault();
+    e.stopPropagation();
 
-    const list = e.dataTransfer.files;
-    if (!list?.length) return;
-    
-    for (const f of list) {
-      const dawFile = await decodeAndAddAudioFile(f);
-      if (dawFile) {
-        addFileToTimeline(dawFile, time);
+    // Snapshot the data we need synchronously — `dataTransfer` may become invalid after await.
+    const types = [...e.dataTransfer.types];
+    const hasMochiFile = types.includes("application/x-mochi-file-id");
+    const mochiFileId = hasMochiFile ? e.dataTransfer.getData("application/x-mochi-file-id") : "";
+    const fileList: File[] = e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
+    const clientX = e.clientX;
+
+    // Reset overlay state immediately — import is async and must never leave the overlay stuck.
+    resetDragState();
+
+    try {
+      let time = 0;
+      if (scrollRef.current) {
+        const rect = scrollRef.current.getBoundingClientRect();
+        const dropX = clientX - rect.left - HEADER_WIDTH + scrollRef.current.scrollLeft;
+        time = Math.max(0, dropX / pixelsPerSecond);
+        if (snapToGrid) {
+          const spb = secondsPerBeat(bpm);
+          time = snapTime(time, bpm, useProjectStore.getState().project.timeSignature ?? { numerator: 4, denominator: 4 }, pixelsPerSecond * spb);
+        }
       }
+
+      if (hasMochiFile) {
+        const dawFile = useProjectStore.getState().project.files.find((f) => f.id === mochiFileId);
+        if (dawFile) addFileToTimeline(dawFile, time);
+        return;
+      }
+
+      if (!fileList.length) return;
+
+      for (const f of fileList) {
+        const dawFile = await decodeAndAddAudioFile(f);
+        if (dawFile) addFileToTimeline(dawFile, time);
+      }
+    } finally {
+      resetDragState();
     }
   };
+
+  // ── Global safety reset ─────────────────────────────────────────────────────
+  // Covers cases where React's drop/dragleave never fires:
+  //  - drop handled by a descendant (e.g. TrackLane) that calls stopPropagation
+  //  - drag cancelled with Escape
+  //  - dropped outside the window
+  //  - window loses focus
+  // Use CAPTURE phase so descendants' stopPropagation cannot block these.
+  useEffect(() => {
+    const reset = () => resetDragState();
+    window.addEventListener("dragend", reset, true);
+    window.addEventListener("drop", reset, true);
+    window.addEventListener("blur", reset);
+    document.addEventListener("mouseleave", reset);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") reset();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("dragend", reset, true);
+      window.removeEventListener("drop", reset, true);
+      window.removeEventListener("blur", reset);
+      document.removeEventListener("mouseleave", reset);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [resetDragState]);
 
   // Keep a stable ref so the wheel handler never goes stale
   const ppsRef = useRef(pixelsPerSecond);

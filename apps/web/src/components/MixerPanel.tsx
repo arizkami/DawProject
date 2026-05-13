@@ -1,5 +1,17 @@
-import { ChevronDown, Minus, Plus, SlidersHorizontal, X } from "lucide-react";
-import { useRef } from "react";
+import {
+  ChevronDown, Minus, Plus, SlidersHorizontal, X,
+  Activity, Waves, Sparkles, AudioLines, Gauge, Boxes, Plug,
+  Send, ArrowRightLeft, FolderPlus,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/menu";
+import { forwardRef, useRef, type ButtonHTMLAttributes } from "react";
 import { useProjectStore } from "../store/projectStore";
 import { useUIStore } from "../store/uiStore";
 import { useHistoryStore } from "../store/historyStore";
@@ -11,6 +23,7 @@ import { VerticalFader } from "./ui/VerticalFader";
 import { useVuStereoLevels } from "../hooks/useVuLevel";
 import { effectiveTrackMeterMode } from "../utils/meterMode";
 import type { DawFile, DawTrack, TrackInsert, TrackSend } from "../types/daw";
+import { buildTrackContextMenu } from "../menu/trackContextMenu";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -52,8 +65,8 @@ function MixBtn({
 }
 
 function SectionHeader({
-  label, accent, onAdd,
-}: { label: string; accent: string; onAdd?: () => void }) {
+  label, accent, menu,
+}: { label: string; accent: string; menu?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-1.5 px-1 py-[5px] justify-between">
       <div className="flex space-x-2">
@@ -62,17 +75,78 @@ function SectionHeader({
           {label}
         </span>
       </div>
+      {menu}
+    </div>
+  );
+}
+
+type SectionAddButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  accent: string;
+};
+
+const SectionAddButton = forwardRef<HTMLButtonElement, SectionAddButtonProps>(
+  function SectionAddButton({ accent, onClick, onPointerDown, ...rest }, ref) {
+    return (
       <button
-        onClick={onAdd}
-        className="flex h-4 w-4 items-center justify-center rounded text-[10px] transition-colors"
+        ref={ref}
+        type="button"
+        {...rest}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onPointerDown?.(e);
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick?.(e);
+        }}
+        className="app-no-drag flex h-4 w-4 items-center justify-center rounded text-[10px] transition-colors outline-none data-[state=open]:bg-white/[0.06]"
         style={{ color: "rgba(255,255,255,0.3)" }}
         onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = accent)}
         onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.3)")}
-        title={`Add ${label.toLowerCase()}`}
       >
         <Plus size={10} />
       </button>
-    </div>
+    );
+  }
+);
+
+function InsertsAddMenu({ accent }: { accent: string }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <SectionAddButton accent={accent} title="Add insert" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={4}>
+        <DropdownMenuLabel>Add Device</DropdownMenuLabel>
+        <DropdownMenuItem icon={Activity}>Add EQ</DropdownMenuItem>
+        <DropdownMenuItem icon={Gauge}>Add Compressor</DropdownMenuItem>
+        <DropdownMenuItem icon={Waves}>Add Reverb</DropdownMenuItem>
+        <DropdownMenuItem icon={AudioLines}>Add Delay</DropdownMenuItem>
+        <DropdownMenuItem icon={Sparkles}>Add Saturation</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem icon={Boxes} disabled>Browse Devices…</DropdownMenuItem>
+        <DropdownMenuItem icon={Plug} disabled>Plugin Manager…</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function SendsAddMenu({ accent }: { accent: string }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <SectionAddButton accent={accent} title="Add send" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={4}>
+        <DropdownMenuLabel>Send</DropdownMenuLabel>
+        <DropdownMenuItem icon={Send}>Add Send A</DropdownMenuItem>
+        <DropdownMenuItem icon={Send}>Add Send B</DropdownMenuItem>
+        <DropdownMenuItem icon={ArrowRightLeft}>Add Return Track</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem icon={ArrowRightLeft} disabled>Route to Bus…</DropdownMenuItem>
+        <DropdownMenuItem icon={FolderPlus} disabled>Create New Bus…</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -158,14 +232,8 @@ function ChannelStrip({
       onContextMenu={(e) => {
         if (!track) return;
         e.preventDefault();
-        useUIStore.getState().setContextMenu(true, { x: e.clientX, y: e.clientY }, [
-          {
-            id: "ctx.delete_track",
-            label: "Delete Track",
-            danger: true,
-            action: "edit:delete-track"
-          }
-        ]);
+        useUIStore.getState().setSelectedTrackId(track.id);
+        useUIStore.getState().setContextMenu(true, { x: e.clientX, y: e.clientY }, buildTrackContextMenu(track));
         if (onClick) onClick();
       }}
       className={`relative flex h-full flex-col border-x border-white/[0.055] select-none ${selected ? "bg-white/[0.05] ring-1 ring-inset ring-white/[0.05]" : ""}`}
@@ -177,7 +245,7 @@ function ChannelStrip({
       {/* ── INSERTS (full only) ── */}
       {showFull && (
         <div className="shrink-0 border-b border-white/[0.05]">
-          <SectionHeader label="Inserts" accent={accent} />
+          <SectionHeader label="Inserts" accent={accent} menu={<InsertsAddMenu accent={accent} />} />
           {inserts.length === 0 ? (
             <div className="px-4 pb-[5px] text-[9px] italic text-white/20">empty</div>
           ) : (
@@ -189,7 +257,7 @@ function ChannelStrip({
       {/* ── SENDS (full only) ── */}
       {showFull && (
         <div className="shrink-0 border-b border-white/[0.05]">
-          <SectionHeader label="Sends" accent={accent} />
+          <SectionHeader label="Sends" accent={accent} menu={<SendsAddMenu accent={accent} />} />
           {sends.length === 0 ? (
             <div className="px-4 pb-[5px] text-[9px] italic text-white/20">empty</div>
           ) : (
@@ -288,19 +356,20 @@ function ChannelStrip({
 
 // ─── Mixer Panel ──────────────────────────────────────────────────────────────
 
-export function MixerPanel() {
+export function MixerPanel({ height, embedded = false }: { height?: number; embedded?: boolean }) {
   const tracks = useProjectStore((s) => s.project.tracks);
   const files = useProjectStore((s) => s.project.files);
-  const { setTrackVolume, setTrackPan, setTrackMute, setTrackSolo } = useProjectStore();
+  const { setTrackVolume, setTrackPan } = useProjectStore();
   const {
     masterVolume, setMasterVolume,
-    toggleMixer,
-    mixerHeight, setMixerHeight,
     mixerChannelWidth, setMixerChannelWidth,
     mixerFlexLayout, toggleMixerFlexLayout,
     selectedMixerTrackId, setSelectedMixerTrackId,
     setSelectedTrackId, setFocusedPanel, setSelectedClipIds,
+    panels, setPanelLayout, togglePanel
   } = useUIStore();
+
+  const mixerHeight = height ?? panels.mixer?.size ?? 300;
 
   // height resize — useRef so drag state survives re-renders
   const hDragRef = useRef<{ startY: number; startH: number } | null>(null);
@@ -310,7 +379,8 @@ export function MixerPanel() {
   };
   const onHeightDrag = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!hDragRef.current) return;
-    setMixerHeight(hDragRef.current.startH + hDragRef.current.startY - e.clientY);
+    const newH = Math.max(160, Math.min(600, hDragRef.current.startH + hDragRef.current.startY - e.clientY));
+    setPanelLayout("mixer", { size: newH });
   };
   const onHeightDragEnd = () => { hDragRef.current = null; };
 
@@ -338,20 +408,25 @@ export function MixerPanel() {
 
   return (
     <div
-      className="flex shrink-0 flex-col overflow-hidden border-t border-daw-border bg-[#111418]"
-      style={{ height: mixerHeight, minHeight: mixerHeight }}
+      className={[
+        "flex flex-col overflow-hidden bg-[#111418]",
+        embedded ? "min-h-0 flex-1" : "shrink-0 border-t border-daw-border",
+      ].join(" ")}
+      style={embedded ? undefined : { height: mixerHeight, minHeight: mixerHeight }}
       onPointerMove={onStripResizeDrag}
       onPointerUp={onStripResizeDragEnd}
     >
-      {/* height resize grip */}
-      <div
-        className="group flex h-[5px] shrink-0 cursor-ns-resize items-center justify-center"
-        onPointerDown={onHeightDragStart}
-        onPointerMove={onHeightDrag}
-        onPointerUp={onHeightDragEnd}
-      >
-        <div className="h-[2px] w-8 rounded-full bg-white/[0.06] transition-colors group-hover:bg-white/25" />
-      </div>
+      {/* height resize grip (hidden when embedded — wrapper provides its own) */}
+      {!embedded && (
+        <div
+          className="group flex h-[5px] shrink-0 cursor-ns-resize items-center justify-center"
+          onPointerDown={onHeightDragStart}
+          onPointerMove={onHeightDrag}
+          onPointerUp={onHeightDragEnd}
+        >
+          <div className="h-[2px] w-8 rounded-full bg-white/[0.06] transition-colors group-hover:bg-white/25" />
+        </div>
+      )}
 
       {/* header */}
       <div className="flex h-8 pb-1 shrink-0 items-center gap-2 border-b border-white/[0.06] px-3">
@@ -400,13 +475,15 @@ export function MixerPanel() {
           </div>
         )}
 
-        <button
-          onClick={toggleMixer}
-          className="flex h-5 w-5 items-center justify-center rounded text-daw-faint transition-colors hover:bg-white/[0.05] hover:text-daw-text"
-          title="Collapse mixer [M]"
-        >
-          <ChevronDown size={11} />
-        </button>
+        {!embedded && (
+          <button
+            onClick={() => togglePanel("mixer")}
+            className="flex h-5 w-5 items-center justify-center rounded text-daw-faint transition-colors hover:bg-white/[0.05] hover:text-daw-text"
+            title="Collapse mixer [M]"
+          >
+            <ChevronDown size={11} />
+          </button>
+        )}
       </div>
 
       {/* strips */}

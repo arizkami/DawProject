@@ -88,7 +88,7 @@ function FileRow({ file }: { file: DawFile }) {
 
 // ─── Browser Panel ────────────────────────────────────────────────────────────
 
-export function BrowserPanel({ onImport }: { onImport?: () => void }) {
+export function BrowserPanel({ onImport, width }: { onImport?: () => void; width?: number }) {
   const files = useProjectStore((s) => s.project.files);
   const [query, setQuery] = useState("");
 
@@ -100,7 +100,7 @@ export function BrowserPanel({ onImport }: { onImport?: () => void }) {
   return (
     <aside
       className="flex shrink-0 flex-col overflow-hidden border-r border-daw-border bg-daw-panel relative"
-      style={{ width: BROWSER_WIDTH, minWidth: BROWSER_WIDTH }}
+      style={{ width: width ?? BROWSER_WIDTH, minWidth: width ?? BROWSER_WIDTH }}
       onDragOver={(e) => {
         if (![...e.dataTransfer.types].includes("Files")) return;
         e.preventDefault();
@@ -111,7 +111,7 @@ export function BrowserPanel({ onImport }: { onImport?: () => void }) {
         e.preventDefault();
         const list = e.dataTransfer.files;
         if (!list?.length) return;
-        for (const f of list) {
+        for (const f of Array.from(list)) {
           await decodeAndAddAudioFile(f);
         }
       }}

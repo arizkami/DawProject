@@ -32,8 +32,7 @@ export function useKeyboardShortcuts() {
         selectedClipIds,
         setSelectedClipIds,
         toggleSnapToGrid,
-        toggleMixer,
-        toggleInspector,
+        togglePanel,
         toggleLoop,
         toggleCommandPalette,
       } = useUIStore.getState();
@@ -185,11 +184,11 @@ export function useKeyboardShortcuts() {
           break;
         }
         case "KeyM": {
-          if (!ctrl) toggleMixer();
+          if (!ctrl) togglePanel("mixer");
           break;
         }
         case "KeyI": {
-          if (!ctrl) toggleInspector();
+          if (!ctrl) togglePanel("inspector");
           break;
         }
         case "KeyN": {

@@ -22,8 +22,9 @@ const TYPE_LABELS: Record<TrackType, string> = {
   bus: "Bus",
 };
 
-export function InspectorPanel() {
-  const { selectedTrackId, selectedClipIds, selectedMixerTrackId, toggleInspector, masterVolume, setMasterVolume } = useUIStore();
+export function InspectorPanel({ width }: { width?: number } = {}) {
+  const { selectedTrackId, selectedClipIds, selectedMixerTrackId, togglePanel, masterVolume, setMasterVolume } = useUIStore();
+  const toggleInspector = () => togglePanel("inspector");
   const { project } = useProjectStore();
   const history = useHistoryStore.getState;
   
@@ -48,7 +49,7 @@ export function InspectorPanel() {
   return (
     <div
       className="flex shrink-0 flex-col overflow-hidden border-l border-daw-border bg-daw-panel"
-      style={{ width: INSPECTOR_WIDTH, minWidth: INSPECTOR_WIDTH }}
+      style={{ width: width ?? INSPECTOR_WIDTH, minWidth: width ?? INSPECTOR_WIDTH }}
     >
       {/* Panel header */}
       <div className="flex h-6 shrink-0 items-center justify-between border-b border-daw-border bg-daw-surface px-3">

@@ -210,10 +210,8 @@ export function TransportBar({ onImport, onSave }: { onImport?: () => void; onSa
   const { isPlaying, playheadTime, setIsPlaying } = useTransportStore();
   const { project, setBpm, setTimeSignature } = useProjectStore();
   const {
-    inspectorOpen,
-    toggleInspector,
-    mixerOpen,
-    toggleMixer,
+    panels,
+    togglePanel,
     loopEnabled,
     toggleLoop,
     snapToGrid,
@@ -269,10 +267,13 @@ export function TransportBar({ onImport, onSave }: { onImport?: () => void; onSa
         return { checked: snapToGrid };
       case "panel:toggle-inspector":
       case "window.show_inspector":
-        return { checked: inspectorOpen };
+        return { checked: panels.inspector?.visible };
       case "panel:toggle-mixer":
       case "window.show_mixer":
-        return { checked: mixerOpen };
+        return { checked: panels.mixer?.visible };
+      case "panel:toggle-browser":
+      case "window.show_browser":
+        return { checked: panels.browser?.visible };
       default:
         return {};
     }
@@ -307,11 +308,15 @@ export function TransportBar({ onImport, onSave }: { onImport?: () => void; onSa
         break;
       case "panel:toggle-inspector":
       case "window.show_inspector":
-        toggleInspector();
+        togglePanel("inspector");
         break;
       case "panel:toggle-mixer":
       case "window.show_mixer":
-        toggleMixer();
+        togglePanel("mixer");
+        break;
+      case "panel:toggle-browser":
+      case "window.show_browser":
+        togglePanel("browser");
         break;
       default:
         break;
@@ -420,8 +425,11 @@ export function TransportBar({ onImport, onSave }: { onImport?: () => void; onSa
 
           <Divider />
 
-          <IconBtn icon={PanelBottom} label="Toggle Mixer [M]" active={mixerOpen} onClick={toggleMixer} />
-          <IconBtn icon={PanelRight} label="Toggle Inspector [I]" active={inspectorOpen} onClick={toggleInspector} />
+          <div className="flex gap-1">
+            <IconBtn icon={FolderOpen} label="Toggle Browser [B]" active={panels.browser?.visible} onClick={() => togglePanel("browser")} />
+            <IconBtn icon={PanelBottom} label="Toggle Mixer [M]" active={panels.mixer?.visible} onClick={() => togglePanel("mixer")} />
+            <IconBtn icon={PanelRight} label="Toggle Inspector [I]" active={panels.inspector?.visible} onClick={() => togglePanel("inspector")} />
+          </div>
 
           <Divider />
 

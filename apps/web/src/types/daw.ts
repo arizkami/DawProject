@@ -80,5 +80,12 @@ export type DawFile = {
 export type WaveformPeaks = {
   samplesPerPeak: number;
   channelCount: number;
+  /** Interleaved min/max per peak, per channel: [ch0_min, ch0_max, ch1_min, ch1_max, ...] */
   peaks: Float32Array;
+  /** Source audio sample rate (needed for clip-offset math). */
+  sampleRate?: number;
+  /** Source audio total duration in seconds. */
+  duration?: number;
 };
+
+export type WaveformStatus = "idle" | "loading" | "ready" | "error";

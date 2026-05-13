@@ -120,6 +120,16 @@ input[type=range].vertical::-webkit-slider-thumb {
     );
 }
 
+/* Waveform loading shimmer */
+@keyframes waveform-shimmer {
+  0%, 100% { opacity: 0.10; transform: scaleY(0.85); }
+  50%      { opacity: 0.28; transform: scaleY(1.05); }
+}
+.waveform-shimmer {
+  animation: waveform-shimmer 1.1s ease-in-out infinite;
+  transform-origin: center;
+}
+
 .daw-track-fader::-webkit-slider-thumb {
   width: 12px;
   height: 12px;

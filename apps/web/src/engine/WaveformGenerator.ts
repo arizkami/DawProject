@@ -19,7 +19,16 @@ export function generatePeaks(
     channelData.map((c) => c.buffer)
   );
   worker.onmessage = (e: MessageEvent<{ fileId: FileId; peaks: WaveformPeaks }>) => {
-    onPeaks(e.data.fileId, e.data.peaks);
+    const enriched: WaveformPeaks = {
+      ...e.data.peaks,
+      sampleRate: audioBuffer.sampleRate,
+      duration: audioBuffer.duration,
+    };
+    onPeaks(e.data.fileId, enriched);
+    worker.terminate();
+  };
+
+  worker.onerror = () => {
     worker.terminate();
   };
 }

@@ -1,46 +1,51 @@
+import type { DawTrack } from "../types/daw";
 import { useProjectStore } from "../store/projectStore";
 import { useUIStore } from "../store/uiStore";
 import { useTransportStore } from "../store/transportStore";
 import { useMetronomeStore } from "../store/metronomeStore";
 import { useHistoryStore } from "../store/historyStore";
 import { transport } from "../engine/Transport";
-import { clipScheduler } from "../engine/ClipScheduler";
-import { DeleteTrackCommand, DeleteClipsCommand, DuplicateClipsCommand } from "../commands";
+import { getTrackColor } from "../theme";
+import {
+  AddTrackCommand,
+  DeleteTrackCommand,
+  DeleteClipsCommand,
+  DuplicateClipsCommand,
+  DuplicateTrackCommand,
+  RenameTrackCommand,
+  SetTrackColorCommand,
+  SetTrackMuteCommand,
+  SetTrackSoloCommand,
+} from "../commands";
 
 export function runAction(actionId: string) {
-  const { toggleCommandPalette } = useUIStore.getState();
-
-  // Close the palette if an action is run
-  if (useUIStore.getState().commandPaletteOpen) {
-    useUIStore.getState().setCommandPaletteOpen(false);
-  }
+  // Close command palette if open
+  const uiStore = useUIStore.getState();
+  if (uiStore.commandPaletteOpen) uiStore.setCommandPaletteOpen(false);
 
   const projectStore = useProjectStore.getState();
-  const uiStore = useUIStore.getState();
   const transportStore = useTransportStore.getState();
   const metronomeStore = useMetronomeStore.getState();
+  const history = useHistoryStore.getState();
 
   switch (actionId) {
-    // Tools
+    // ── Tools ──────────────────────────────────────────────────────────────
     case "tools:command-palette":
     case "tools:quick-search":
-      toggleCommandPalette();
+      uiStore.toggleCommandPalette();
       break;
 
     case "command:close":
-      useUIStore.getState().setCommandPaletteOpen(false);
+      uiStore.setCommandPaletteOpen(false);
       break;
 
-    // Transport
+    // ── Transport ──────────────────────────────────────────────────────────
     case "transport:play-pause":
       if (transportStore.isPlaying) {
         transport.pause();
-        clipScheduler.cancelAll();
         transportStore.setIsPlaying(false);
       } else {
-        void transport.play().then(() => {
-          transportStore.setIsPlaying(true);
-        });
+        void transport.play().then(() => transportStore.setIsPlaying(true));
       }
       break;
 
@@ -51,10 +56,6 @@ export function runAction(actionId: string) {
 
     case "transport:go-to-start":
       transport.seek(0);
-      if (transportStore.isPlaying) {
-        clipScheduler.cancelAll();
-        clipScheduler.schedule(projectStore.project.tracks);
-      }
       break;
 
     case "transport:toggle-loop":
@@ -69,22 +70,22 @@ export function runAction(actionId: string) {
       metronomeStore.toggleCountIn();
       break;
 
-    // Edit
+    // ── Edit ───────────────────────────────────────────────────────────────
     case "edit:undo":
-      useHistoryStore.getState().undo();
+      history.undo();
       break;
 
     case "edit:redo":
-      useHistoryStore.getState().redo();
+      history.redo();
       break;
 
     case "edit:delete": {
       const { selectedClipIds, selectedTrackId, focusedPanel } = uiStore;
       if (focusedPanel === "timeline" && selectedClipIds.length > 0) {
-        useHistoryStore.getState().execute(new DeleteClipsCommand(selectedClipIds));
+        history.execute(new DeleteClipsCommand(selectedClipIds));
         uiStore.setSelectedClipIds([]);
       } else if (selectedTrackId) {
-        useHistoryStore.getState().execute(new DeleteTrackCommand(selectedTrackId));
+        history.execute(new DeleteTrackCommand(selectedTrackId));
         uiStore.setSelectedTrackId(null);
         uiStore.setSelectedMixerTrackId(null);
       }
@@ -94,7 +95,7 @@ export function runAction(actionId: string) {
     case "edit:delete-track": {
       const { selectedTrackId } = uiStore;
       if (selectedTrackId) {
-        useHistoryStore.getState().execute(new DeleteTrackCommand(selectedTrackId));
+        history.execute(new DeleteTrackCommand(selectedTrackId));
         uiStore.setSelectedTrackId(null);
         uiStore.setSelectedMixerTrackId(null);
       }
@@ -103,9 +104,7 @@ export function runAction(actionId: string) {
 
     case "edit:duplicate": {
       const { selectedClipIds } = uiStore;
-      if (selectedClipIds.length > 0) {
-        useHistoryStore.getState().execute(new DuplicateClipsCommand(selectedClipIds));
-      }
+      if (selectedClipIds.length > 0) history.execute(new DuplicateClipsCommand(selectedClipIds));
       break;
     }
 
@@ -118,16 +117,94 @@ export function runAction(actionId: string) {
       uiStore.toggleSnapToGrid();
       break;
 
-    // View
-    case "view:toggle-mixer": // assuming this might be an action, or mapping directly
-      uiStore.toggleMixer();
+    // ── Track context-menu actions ─────────────────────────────────────────
+    case "track:rename": {
+      const { selectedTrackId } = uiStore;
+      if (!selectedTrackId) break;
+      const track = projectStore.project.tracks.find((t) => t.id === selectedTrackId);
+      if (!track) break;
+      const newName = window.prompt("Rename track:", track.name)?.trim();
+      if (newName && newName !== track.name) {
+        history.execute(new RenameTrackCommand(selectedTrackId, newName, track.name));
+      }
       break;
-    
-    case "view:toggle-inspector":
-      uiStore.toggleInspector();
+    }
+
+    case "track:duplicate": {
+      const { selectedTrackId } = uiStore;
+      if (selectedTrackId) history.execute(new DuplicateTrackCommand(selectedTrackId));
+      break;
+    }
+
+    case "track:toggle-mute": {
+      const { selectedTrackId } = uiStore;
+      if (!selectedTrackId) break;
+      const track = projectStore.project.tracks.find((t) => t.id === selectedTrackId);
+      if (track) history.execute(new SetTrackMuteCommand(selectedTrackId, !track.muted));
+      break;
+    }
+
+    case "track:toggle-solo": {
+      const { selectedTrackId } = uiStore;
+      if (!selectedTrackId) break;
+      const track = projectStore.project.tracks.find((t) => t.id === selectedTrackId);
+      if (track) history.execute(new SetTrackSoloCommand(selectedTrackId, !track.solo));
+      break;
+    }
+
+    case "track:toggle-arm": {
+      const { selectedTrackId } = uiStore;
+      if (!selectedTrackId) break;
+      const track = projectStore.project.tracks.find((t) => t.id === selectedTrackId);
+      if (track) projectStore.setTrackArmed(selectedTrackId, !track.armed);
+      break;
+    }
+
+    case "track:add-audio": {
+      const tracks = projectStore.project.tracks;
+      const newId = crypto.randomUUID();
+      const newTrack: DawTrack = {
+        id: newId,
+        name: `Audio Track ${tracks.length + 1}`,
+        type: "audio",
+        color: getTrackColor(tracks.length),
+        channelCount: 2,
+        volume: 0.8,
+        pan: 0,
+        muted: false,
+        solo: false,
+        armed: false,
+        clips: [],
+      };
+      history.execute(new AddTrackCommand(newTrack));
+      uiStore.setSelectedTrackId(newId);
+      break;
+    }
+
+    // Stubs — not yet implemented
+    case "track:add-midi":
+    case "track:add-plugin":
+    case "track:add-bus":
+    case "track:freeze":
+    case "track:flatten":
+    case "track:route-to":
+    case "track:settings":
       break;
 
-    // Project
+    // ── View ───────────────────────────────────────────────────────────────
+    case "panel:toggle-mixer":
+    case "view:toggle-mixer":
+    case "window.show_mixer":
+      uiStore.togglePanel("mixer");
+      break;
+
+    case "panel:toggle-inspector":
+    case "view:toggle-inspector":
+    case "window.show_inspector":
+      uiStore.togglePanel("inspector");
+      break;
+
+    // ── Project ────────────────────────────────────────────────────────────
     case "project:save":
       projectStore.saveLocal();
       break;
@@ -136,6 +213,16 @@ export function runAction(actionId: string) {
       break;
 
     default:
+      // track:color:#RRGGBB
+      if (actionId.startsWith("track:color:")) {
+        const color = actionId.slice("track:color:".length);
+        const { selectedTrackId } = uiStore;
+        if (selectedTrackId) {
+          const track = projectStore.project.tracks.find((t) => t.id === selectedTrackId);
+          if (track) history.execute(new SetTrackColorCommand(selectedTrackId, color, track.color));
+        }
+        break;
+      }
       console.warn(`[ActionRunner] Unhandled action: ${actionId}`);
   }
 }
