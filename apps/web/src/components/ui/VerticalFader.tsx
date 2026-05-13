@@ -71,22 +71,36 @@ export function VerticalFader({ value, onChange, onChangeEnd, accent = "#48d1cc"
     const thumbY = trackBottom - v * trackH;
     const [r, g, b] = hexToRgb(col);
 
-    // ── track background ──
-    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    // ── full track background (rail) ──
+    ctx.fillStyle = "rgba(255,255,255,0.085)";
     ctx.fillRect(cx - TRACK_W / 2, trackTop, TRACK_W, trackH);
 
-    // ── track fill (below thumb — dimmer) ──
-    ctx.fillStyle = "rgba(255,255,255,0.04)";
-    ctx.fillRect(cx - TRACK_W / 2, thumbY, TRACK_W, trackBottom - thumbY);
+    // ── tick marks (right side of rail) ──
+    // 5 evenly spaced + a slightly bolder "0 dB" reference at ~0.794 (≈ -2 dB headroom).
+    const tickX0 = cx + TRACK_W / 2 + 2;
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    for (let i = 0; i <= 5; i++) {
+      const ty = trackTop + (i / 5) * trackH;
+      ctx.fillRect(tickX0, Math.round(ty), 3, 1);
+    }
+    // 0 dB unity marker (slightly longer + brighter)
+    const unityY = trackBottom - 0.794 * trackH;
+    ctx.fillStyle = "rgba(255,255,255,0.32)";
+    ctx.fillRect(tickX0 - 1, Math.round(unityY), 5, 1);
 
-    // ── thumb drop shadow ──
+    // ── active fill above thumb (track-colored, subtle) ──
+    ctx.fillStyle = `rgba(${r},${g},${b},0.38)`;
+    ctx.fillRect(cx - TRACK_W / 2, thumbY, TRACK_W, trackBottom - thumbY);
+    // Above thumb stays at neutral background — no overdraw needed.
+
+    // ── thumb drop shadow (softer) ──
     ctx.save();
-    ctx.shadowColor   = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur    = 10;
-    ctx.shadowOffsetY = 3;
+    ctx.shadowColor   = "rgba(0,0,0,0.42)";
+    ctx.shadowBlur    = 8;
+    ctx.shadowOffsetY = 2;
     ctx.beginPath();
     ctx.arc(cx, thumbY, THUMB_R, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0,0,0,0.01)"; // transparent, just for shadow
+    ctx.fillStyle = "rgba(0,0,0,0.01)";
     ctx.fill();
     ctx.restore();
 

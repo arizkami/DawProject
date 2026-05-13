@@ -1,13 +1,103 @@
 {
-  "name": "daw-electron",
+  "name": "futureboard-studio-electron",
   "private": true,
-  "version": "0.0.0",
+  "version": "2026.05.14",
+  "description": "Futureboard Studio — Electron shell",
+  "author": "Mochi Linux Studio",
   "type": "module",
-  "main": "src/main.js",
+  "main": "dist/main.js",
   "scripts": {
-    "dev": "electron ."
+    "build": "tsc -p .",
+    "dev": "concurrently -k -n tsc,electron -c blue,magenta \"tsc -p . --watch\" \"wait-on dist/main.js && electron .\"",
+    "start": "electron .",
+    "build:renderer": "bun run --cwd ../web build",
+    "build:all": "bun run build:renderer && bun run build",
+    "pack": "bun run build:all && electron-builder --dir",
+    "dist": "bun run build:all && electron-builder",
+    "dist:win": "bun run build:all && electron-builder --win",
+    "dist:mac": "bun run build:all && electron-builder --mac",
+    "dist:linux": "bun run build:all && electron-builder --linux"
   },
   "devDependencies": {
-    "electron": "^35.0.0"
+    "@types/node": "^22.0.0",
+    "concurrently": "^9.0.0",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8",
+    "rcedit": "^5.0.2",
+    "typescript": "^5.5.0",
+    "wait-on": "^8.0.0"
+  },
+  "build": {
+    "appId": "org.mochilinux.studio",
+    "productName": "Futureboard Studio",
+    "copyright": "Copyright © ${author}",
+    "afterPack": "scripts/after-pack.cjs",
+    "asar": true,
+    "asarUnpack": [],
+    "compression": "maximum",
+    "removePackageScripts": true,
+    "removePackageKeywords": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "!**/*.map",
+      "!**/*.ts",
+      "!**/*.tsbuildinfo"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "renderer",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "icons",
+        "to": "icons",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "Futureboard Studio",
+      "installerIcon": "icons/icon.ico",
+      "uninstallerIcon": "icons/icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "category": "public.app-category.music",
+      "icon": "icons/app.png",
+      "hardenedRuntime": true
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "AudioVideo",
+      "icon": "icons/app.png"
+    }
   }
 }

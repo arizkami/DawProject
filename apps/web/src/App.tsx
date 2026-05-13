@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { AppShell } from "./components/AppShell";
 import { TransportBar } from "./components/TransportBar";
 import { CommandPalette } from "./components/ui/CommandPalette";
@@ -10,6 +10,7 @@ import { useProjectStore } from "./store/projectStore";
 import { useMetronomeStore } from "./store/metronomeStore";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { importAudioFilesAsNewTracks } from "./utils/importAudioToProject";
+import { platform } from "./platform";
 import "./App.css";
 
 // Wire engine modules to app-layer state — runs once at module load time.
@@ -31,9 +32,26 @@ metronomeScheduler.setConfigGetter(() => {
 });
 
 export default function App() {
-  const { setPeaks, loadLocal, saveLocal, project } = useProjectStore();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { setPeaks, loadLocal, project } = useProjectStore();
   useKeyboardShortcuts();
+
+  const handleImportClick = async () => {
+    try {
+      const files = await platform.fileSystem.pickAudioFiles();
+      if (files.length === 0) return;
+      await importAudioFilesAsNewTracks(files);
+    } catch (e) {
+      console.warn("[App] import audio:", e);
+    }
+  };
+
+  const handleSaveProject = async () => {
+    try {
+      await platform.projectStorage.saveProject(useProjectStore.getState().project);
+    } catch (e) {
+      console.warn("[App] save project:", e);
+    }
+  };
 
   // Load saved project metadata from localStorage on mount
   useEffect(() => {
@@ -59,32 +77,15 @@ export default function App() {
     }
   }, [project.files, setPeaks]);
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    await importAudioFilesAsNewTracks(Array.from(files));
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
   return (
     <div className="flex h-full flex-col bg-daw-bg -space-y-[1px] text-daw-text">
-      <input
-        ref={fileInputRef}
-        id="audio-import"
-        type="file"
-        accept=".wav,.mp3,audio/wav,audio/mpeg"
-        multiple
-        style={{ display: "none" }}
-        onChange={handleImport}
-      />
-
       <TransportBar
-        onImport={() => fileInputRef.current?.click()}
-        onSave={saveLocal}
+        onImport={handleImportClick}
+        onSave={handleSaveProject}
       />
 
       <div className="min-h-0 flex-1  overflow-hidden">
-        <AppShell onImport={() => fileInputRef.current?.click()} />
+        <AppShell onImport={handleImportClick} />
       </div>
       <CommandPalette />
       <ContextMenu />

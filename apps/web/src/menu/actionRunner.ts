@@ -6,6 +6,8 @@ import { useMetronomeStore } from "../store/metronomeStore";
 import { useHistoryStore } from "../store/historyStore";
 import { transport } from "../engine/Transport";
 import { getTrackColor } from "../theme";
+import { platform } from "../platform";
+import { importAudioFilesAsNewTracks } from "../utils/importAudioToProject";
 import {
   AddTrackCommand,
   DeleteTrackCommand,
@@ -206,13 +208,64 @@ export function runAction(actionId: string) {
 
     // ── Project ────────────────────────────────────────────────────────────
     case "project:save":
-      projectStore.saveLocal();
+      void platform.projectStorage
+        .saveProject(useProjectStore.getState().project)
+        .catch((e) => console.warn("[ActionRunner] save project:", e));
+      break;
+
+    case "project:open":
+      void platform.projectStorage
+        .openProject()
+        .then((p) => {
+          if (p) useProjectStore.setState({ project: p });
+        })
+        .catch((e) => console.warn("[ActionRunner] open project:", e));
+      break;
+
+    // ── File ───────────────────────────────────────────────────────────────
+    case "file:import-audio":
+      void platform.fileSystem
+        .pickAudioFiles()
+        .then((files) => {
+          if (files.length > 0) return importAudioFilesAsNewTracks(files);
+        })
+        .catch((e) => console.warn("[ActionRunner] import audio:", e));
+      break;
+
+    // file:reveal-in-folder is also handled via the dynamic prefix in the default branch
+    // so future UI can pass a path (e.g. `file:reveal-in-folder:<path>`).
+    case "file:reveal-in-folder":
+      break;
+
+    // ── Window ─────────────────────────────────────────────────────────────
+    case "window:minimize":
+      platform.window.minimize();
+      break;
+
+    case "window:maximize":
+    case "window:toggle-maximize":
+      platform.window.toggleMaximize();
+      break;
+
+    case "window:close":
+      platform.window.close();
       break;
 
     case "noop":
       break;
 
     default:
+      // file:reveal-in-folder:<path> — show item in OS file manager.
+      if (actionId.startsWith("file:reveal-in-folder:")) {
+        if (!platform.capabilities.filesystem) break;
+        const path = actionId.slice("file:reveal-in-folder:".length);
+        if (path) {
+          void platform.fileSystem
+            .revealInFileManager(path)
+            .catch((e) => console.warn("[ActionRunner] reveal:", e));
+        }
+        break;
+      }
       // track:color:#RRGGBB
       if (actionId.startsWith("track:color:")) {
         const color = actionId.slice("track:color:".length);

@@ -26,6 +26,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { transport } from "../engine/Transport";
 import { APP_MENUS, type AppMenuGroup, type AppMenuItem } from "../menu/menuItems";
+import { runAction } from "../menu/actionRunner";
 import { useProjectStore } from "../store/projectStore";
 import { useTransportStore } from "../store/transportStore";
 import { useMetronomeStore } from "../store/metronomeStore";
@@ -284,11 +285,14 @@ export function TransportBar({ onImport, onSave }: { onImport?: () => void; onSa
 
     switch (item.action) {
       case "file:import-audio":
-      case "project:open":
         onImport?.();
         break;
+      case "project:open":
+        runAction("project:open");
+        break;
       case "project:save":
-        onSave?.();
+        if (onSave) onSave();
+        else runAction("project:save");
         break;
       case "transport:play-pause":
         if (isPlaying) handlePause();

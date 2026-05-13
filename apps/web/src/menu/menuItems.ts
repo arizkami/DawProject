@@ -1429,7 +1429,7 @@ export const APP_MENUS: AppMenuGroup[] = [
       },
       {
         id: "help.about",
-        label: "About Mochi Studio",
+        label: "About Futureboard Studio",
         icon: "info",
         action: "app:about",
       },

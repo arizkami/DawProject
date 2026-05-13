@@ -8,9 +8,15 @@
   ],
   "scripts": {
     "dev:web": "bun run --cwd apps/web dev",
-    "dev:electron": "bun run --cwd apps/electron dev",
+    "dev:electron": "concurrently -k -n web,electron \"bun run --cwd apps/web dev\" \"bun run --cwd apps/electron dev\"",
     "dev:server": "bun run --cwd apps/server dev",
     "build:web": "bun run --cwd apps/web build",
+    "build:electron": "bun run --cwd apps/electron build",
+    "pack:electron": "bun run --cwd apps/electron pack",
+    "dist:electron": "bun run --cwd apps/electron dist",
+    "dist:electron:win": "bun run --cwd apps/electron dist:win",
+    "dist:electron:mac": "bun run --cwd apps/electron dist:mac",
+    "dist:electron:linux": "bun run --cwd apps/electron dist:linux",
     "lint:web": "bun run --cwd apps/web lint"
   }
 }

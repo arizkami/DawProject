@@ -13,15 +13,12 @@ type Props = {
 
 function segmentColor(i: number, on: boolean) {
   const color =
-    i >= SEGMENTS - 2  ? "#f07a72" :
-    i >= SEGMENTS - 5  ? "#f0c35b" :
-    i >= SEGMENTS - 10 ? "#5ed8da" :
-                         "#3ab5b8";
-  const dim =
-    i >= SEGMENTS - 2  ? "#28100f" : // dark muted red
-    i >= SEGMENTS - 5  ? "#241c0a" : // dark muted yellow
-                         "#133233";  // dark muted teal
-  return on ? color : dim;
+    i >= SEGMENTS - 2  ? "#e9756e" :
+    i >= SEGMENTS - 5  ? "#e8be58" :
+    i >= SEGMENTS - 10 ? "#56c7c9" :
+                         "#3a9fa1";
+  // Uniform neutral slate when idle — meter looks monochrome until audio plays.
+  return on ? color : "rgba(255,255,255,0.045)";
 }
 
 function MeterColumn({ level, width }: { level: number; width: number }) {

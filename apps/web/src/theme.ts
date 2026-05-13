@@ -25,51 +25,51 @@ export const INSPECTOR_WIDTH = 292;
 export const MIXER_HEIGHT = 240;
 
 export const C = {
-  // Core surfaces
-  bg: "#111419",
-  sunken: "#0B0D11",
-  surface: "#181C23",
-  surfaceHigh: "#202632",
-  surfaceHover: "#252C38",
-  surfaceActive: "#2B3442",
+  // Core surfaces - lighter dark, still professional
+  bg: "#171B22",
+  sunken: "#11151B",
+  surface: "#202631",
+  surfaceHigh: "#2A3240",
+  surfaceHover: "#313A49",
+  surfaceActive: "#394456",
 
   // Borders
-  border: "#2B3440",
-  borderSoft: "rgba(255,255,255,0.055)",
-  borderHard: "#43505F",
+  border: "#3A4554",
+  borderSoft: "rgba(255,255,255,0.075)",
+  borderHard: "#536173",
 
   // Text
-  faint: "#566372",
-  dim: "#8A96A6",
-  text: "#EEF3F8",
-  textSoft: "#C9D2DC",
+  faint: "#6B7888",
+  dim: "#9AA7B8",
+  text: "#F1F5F9",
+  textSoft: "#D2DBE6",
 
   // Main identity
-  accent: "#56C7C9",
-  accentSoft: "rgba(86,199,201,0.16)",
-  accentHard: "#7EE4E6",
+  accent: "#5FCED0",
+  accentSoft: "rgba(95,206,208,0.18)",
+  accentHard: "#8AE9EB",
 
   // Status
-  green: "#7EDB9A",
-  red: "#F27E77",
-  yellow: "#F2C96D",
-  orange: "#E89B61",
-  violet: "#A99CFF",
-  blue: "#6EB7E8",
+  green: "#85E0A3",
+  red: "#F4877F",
+  yellow: "#F4CF7A",
+  orange: "#EFA66D",
+  violet: "#B7ABFF",
+  blue: "#7BC4F0",
 
   // Timeline
-  gridMinor: "rgba(255,255,255,0.035)",
-  gridMajor: "rgba(255,255,255,0.075)",
-  playhead: "#56C7C9",
-  selection: "rgba(86,199,201,0.18)",
+  gridMinor: "rgba(255,255,255,0.045)",
+  gridMajor: "rgba(255,255,255,0.095)",
+  playhead: "#5FCED0",
+  selection: "rgba(95,206,208,0.20)",
 
   // Clips / waveform
-  clipBg: "rgba(86,199,201,0.16)",
-  clipBorder: "rgba(86,199,201,0.42)",
-  waveform: "rgba(226,236,246,0.72)",
+  clipBg: "rgba(95,206,208,0.18)",
+  clipBorder: "rgba(95,206,208,0.48)",
+  waveform: "rgba(234,242,250,0.76)",
 
   // Mixer
-  meterGreen: "#7EDB9A",
-  meterYellow: "#F2C96D",
-  meterRed: "#F27E77",
+  meterGreen: "#85E0A3",
+  meterYellow: "#F4CF7A",
+  meterRed: "#F4877F",
 } as const;

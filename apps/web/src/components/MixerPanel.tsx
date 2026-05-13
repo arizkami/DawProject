@@ -50,13 +50,14 @@ function MixBtn({
       title={title ?? label}
       onClick={onClick}
       className={[
-        "grid place-items-center  text-[10px] border font-black transition-colors",
+        "grid place-items-center rounded-[4px] text-[10px] border font-bold transition-colors",
         wide ? "h-6 flex-1" : "h-5 w-5",
+        active ? "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.25)]" : "hover:bg-white/[0.04] hover:text-daw-dim",
       ].join(" ")}
       style={{
-        background: active ? activeColor : "",
-        borderColor: active ? activeColor : "rgba(255,255,255,0.09)",
-        color: active ? "#0d1015" : "rgba(220,232,240,0.6)",
+        background: active ? activeColor : "rgba(255,255,255,0.02)",
+        borderColor: active ? activeColor : "rgba(255,255,255,0.08)",
+        color: active ? "#0d1015" : "rgba(220,232,240,0.55)",
       }}
     >
       {label}
@@ -68,10 +69,13 @@ function SectionHeader({
   label, accent, menu,
 }: { label: string; accent: string; menu?: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-1.5 px-1 py-[5px] justify-between">
-      <div className="flex space-x-2">
-        <div className="h-3 w-[2px] shrink-0 rounded-full" style={{ background: accent }} />
-        <span className="flex-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: accent, opacity: 0.75 }}>
+    <div className="flex items-center justify-between gap-1.5 px-2 py-[5px]">
+      <div className="flex items-center gap-1.5">
+        <div className="h-2.5 w-[2px] shrink-0 rounded-full" style={{ background: accent, opacity: 0.55 }} />
+        <span
+          className="flex-1 text-[9px] font-semibold uppercase tracking-[0.14em]"
+          style={{ color: "rgba(220,232,240,0.4)" }}
+        >
           {label}
         </span>
       </div>
@@ -99,12 +103,12 @@ const SectionAddButton = forwardRef<HTMLButtonElement, SectionAddButtonProps>(
           e.stopPropagation();
           onClick?.(e);
         }}
-        className="app-no-drag flex h-4 w-4 items-center justify-center rounded text-[10px] transition-colors outline-none data-[state=open]:bg-white/[0.06]"
-        style={{ color: "rgba(255,255,255,0.3)" }}
+        className="app-no-drag flex h-[18px] w-[18px] items-center justify-center rounded-[4px] text-[10px] transition-colors outline-none hover:bg-white/[0.06] data-[state=open]:bg-white/[0.08]"
+        style={{ color: "rgba(255,255,255,0.32)" }}
         onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = accent)}
-        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.3)")}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.32)")}
       >
-        <Plus size={10} />
+        <Plus size={11} />
       </button>
     );
   }
@@ -165,6 +169,21 @@ function InsertRow({ insert, accent }: { insert: TrackInsert; accent: string }) 
       <button className="opacity-0 group-hover:opacity-100 transition-opacity text-white/30 hover:text-white/70">
         <X size={8} />
       </button>
+    </div>
+  );
+}
+
+function EmptySlotRow({ accent, hint }: { accent: string; hint: string }) {
+  return (
+    <div
+      className="group mx-1 mb-1 flex items-center justify-center rounded-[3px] border border-dashed border-white/[0.05] px-2 py-1 text-[9px] tracking-wide text-white/[0.22] transition-colors hover:border-white/[0.12] hover:bg-white/[0.018] hover:text-white/[0.42]"
+      title={hint}
+    >
+      <span className="truncate">empty</span>
+      <span
+        className="ml-1.5 hidden h-1 w-1 rounded-full group-hover:inline-block"
+        style={{ background: accent, opacity: 0.6 }}
+      />
     </div>
   );
 }
@@ -236,18 +255,32 @@ function ChannelStrip({
         useUIStore.getState().setContextMenu(true, { x: e.clientX, y: e.clientY }, buildTrackContextMenu(track));
         if (onClick) onClick();
       }}
-      className={`relative flex h-full flex-col border-x border-white/[0.055] select-none ${selected ? "bg-white/[0.05] ring-1 ring-inset ring-white/[0.05]" : ""}`}
-      style={{ ...style, background: selected ? undefined : isMaster ? "rgba(72,209,204,0.035)" : "rgba(255,255,255,0.016)" }}
+      className={[
+        "relative flex h-full flex-col select-none",
+        isMaster ? "border-l-2 border-l-white/[0.085]" : "border-r border-r-white/[0.04]",
+        selected ? "ring-1 ring-inset ring-white/[0.06]" : "",
+      ].join(" ")}
+      style={{
+        ...style,
+        background: selected
+          ? "rgba(255,255,255,0.038)"
+          : isMaster
+            ? "linear-gradient(180deg, rgba(72,209,204,0.045) 0%, rgba(72,209,204,0.018) 100%)"
+            : `linear-gradient(180deg, ${accent}0E 0%, rgba(255,255,255,0.012) 22%)`,
+      }}
     >
-      {/* top colour bar */}
-      <div className="h-[2px] w-full shrink-0" style={{ background: accent }} />
+      {/* top accent line — subtle gradient instead of solid bar */}
+      <div
+        className="h-[1.5px] w-full shrink-0"
+        style={{ background: `linear-gradient(90deg, transparent 0%, ${accent} 28%, ${accent} 72%, transparent 100%)`, opacity: 0.75 }}
+      />
 
       {/* ── INSERTS (full only) ── */}
       {showFull && (
-        <div className="shrink-0 border-b border-white/[0.05]">
+        <div className="shrink-0 border-b border-white/[0.045]">
           <SectionHeader label="Inserts" accent={accent} menu={<InsertsAddMenu accent={accent} />} />
           {inserts.length === 0 ? (
-            <div className="px-4 pb-[5px] text-[9px] italic text-white/20">empty</div>
+            <EmptySlotRow accent={accent} hint="Click + to add a device" />
           ) : (
             inserts.map((ins) => <InsertRow key={ins.id} insert={ins} accent={accent} />)
           )}
@@ -256,10 +289,10 @@ function ChannelStrip({
 
       {/* ── SENDS (full only) ── */}
       {showFull && (
-        <div className="shrink-0 border-b border-white/[0.05]">
+        <div className="shrink-0 border-b border-white/[0.045]">
           <SectionHeader label="Sends" accent={accent} menu={<SendsAddMenu accent={accent} />} />
           {sends.length === 0 ? (
-            <div className="px-4 pb-[5px] text-[9px] italic text-white/20">empty</div>
+            <EmptySlotRow accent={accent} hint="Click + to route a send" />
           ) : (
             sends.map((s) => <SendRow key={s.id} send={s} />)
           )}
@@ -268,7 +301,7 @@ function ChannelStrip({
 
       {/* ── Pan knob (medium+) ── */}
       {showMedium && !isMaster && (
-        <div className="flex shrink-0 flex-col items-center gap-0.5 border-b border-white/[0.05] py-2">
+        <div className="flex shrink-0 flex-col items-center gap-0.5 border-b border-white/[0.045] py-2">
           <Knob
             value={pan}
             min={-1}
@@ -280,23 +313,23 @@ function ChannelStrip({
             onChangeEnd={onPanEnd}
           />
           <div className="flex w-full items-center justify-between px-3">
-            <span className="text-[8px] text-white/25">L</span>
-            <span className="text-[8px] text-white/25">R</span>
+            <span className="text-[7px] font-medium uppercase tracking-wider text-white/[0.22]">L</span>
+            <span className="text-[7px] font-medium uppercase tracking-wider text-white/[0.22]">R</span>
           </div>
         </div>
       )}
 
       {/* ── M / S (medium+) ── */}
       {showMedium && (
-        <div className="flex shrink-0 gap-1 border-b border-white/[0.05] px-2 py-1.5">
+        <div className="flex shrink-0 gap-1 border-b border-white/[0.045] px-2 py-1.5">
           {isMaster ? (
-            <span className="flex-1 text-center text-[8px] font-semibold uppercase tracking-widest text-white/25">
+            <span className="flex-1 text-center text-[8px] font-semibold uppercase tracking-[0.18em] text-white/30">
               master
             </span>
           ) : (
             <>
-              <MixBtn label="M" wide active={!!muted} activeColor="#f3c969" onClick={onMute} title="Mute" />
-              <MixBtn label="S" wide active={!!solo}  activeColor="#7bd88f" onClick={onSolo} title="Solo" />
+              <MixBtn label="M" wide active={!!muted} activeColor="#f0c35b" onClick={onMute} title="Mute" />
+              <MixBtn label="S" wide active={!!solo}  activeColor="#7ccf86" onClick={onSolo} title="Solo" />
             </>
           )}
         </div>
@@ -328,16 +361,17 @@ function ChannelStrip({
 
       {/* ── Name + dB readout ── */}
       <div
-        className="shrink-0 border-t border-white/[0.07] px-1.5 py-1.5 text-center"
-        style={{ background: "rgba(0,0,0,0.18)" }}
+        className="shrink-0 border-t border-white/[0.055] px-1.5 py-1.5 text-center"
+        style={{ background: "rgba(0,0,0,0.22)" }}
       >
         <span
           title={label}
-          className="block truncate text-[10px] font-bold tracking-wide text-white/65"
+          className="block truncate whitespace-nowrap text-[10px] font-semibold tracking-wide"
+          style={{ color: selected ? "rgba(238,242,245,0.92)" : "rgba(238,242,245,0.68)" }}
         >
           {label}
         </span>
-        <span className="block text-[8px] tabular-nums text-white/25">
+        <span className="block text-[8px] tabular-nums text-white/30">
           {volumeToDb(volume)}
         </span>
       </div>
