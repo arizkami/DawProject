@@ -17,9 +17,8 @@ import { useUIStore } from "../store/uiStore";
 import { useHistoryStore } from "../store/historyStore";
 import { SetTrackVolumeCommand, SetTrackPanCommand, SetTrackMuteCommand, SetTrackSoloCommand } from "../commands";
 import { mixer } from "../engine/Mixer";
-import { VuMeter } from "./ui/VuMeter";
 import { Knob } from "./ui/Knob";
-import { VerticalFader } from "./ui/VerticalFader";
+import { MixerFader } from "./ui/MixerFader";
 import { useVuStereoLevels } from "../hooks/useVuLevel";
 import { effectiveTrackMeterMode } from "../utils/meterMode";
 import type { DawFile, DawProject, DawTrack, TrackInsert, TrackSend } from "../types/daw";
@@ -29,12 +28,6 @@ import { AddTrackSendCommand, RemoveTrackSendCommand } from "../commands";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function volumeToDb(v: number) {
-  if (v <= 0.001) return "-∞";
-  const db = 20 * Math.log10(v);
-  return (db >= 0 ? `+${db.toFixed(1)}` : db.toFixed(1)) + " dB";
-}
-
 function sendToDb(v: number) {
   if (v <= 0.001) return "-inf";
   const db = 20 * Math.log10(v);
@@ -42,30 +35,6 @@ function sendToDb(v: number) {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-function MixBtn({
-  label, active, activeColor, onClick, title, wide = false,
-}: { label: string; active: boolean; activeColor: string; onClick?: () => void; title?: string; wide?: boolean }) {
-  return (
-    <button
-      type="button"
-      title={title ?? label}
-      onClick={onClick}
-      className={[
-        "grid place-items-center rounded-[4px] text-[10px] border font-bold transition-colors",
-        wide ? "h-6 flex-1" : "h-5 w-5",
-        active ? "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.25)]" : "hover:bg-white/[0.04] hover:text-daw-dim",
-      ].join(" ")}
-      style={{
-        background: active ? activeColor : "rgba(255,255,255,0.02)",
-        borderColor: active ? activeColor : "rgba(255,255,255,0.08)",
-        color: active ? "#0d1015" : "rgba(220,232,240,0.55)",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
 
 function SectionHeader({
   label, accent, menu,
@@ -358,47 +327,25 @@ function ChannelStrip({
         </div>
       )}
 
-      {/* ── M / S (medium+) ── */}
-      {showMedium && (
-        <div className="flex shrink-0 gap-1 border-b border-white/[0.045] px-2 py-1.5">
-          {isMaster ? (
-            <span className="flex-1 text-center text-[8px] font-semibold uppercase tracking-[0.18em] text-white/30">
-              master
-            </span>
-          ) : (
-            <>
-              <MixBtn label="M" wide active={!!muted} activeColor="#f0c35b" onClick={onMute} title="Mute" />
-              <MixBtn label="S" wide active={!!solo}  activeColor="#7ccf86" onClick={onSolo} title="Solo" />
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ── Fader + VU (always) ── */}
-      <div className="flex min-h-0 flex-1 gap-1.5 overflow-hidden px-2 py-2">
-        <div
-          className={`flex shrink-0 flex-col items-center gap-0.5 self-stretch min-h-0 ${
-            meterMode === "stereo" ? "w-[14px]" : "w-[7px]"
-          }`}
-        >
-          <span className="h-[10px] shrink-0 text-[6px] font-semibold uppercase leading-none text-white/28">
-            {isMaster ? "LR" : meterMode === "mono" ? "Mono" : "Stereo"}
-          </span>
-          <div className="flex min-h-0 flex-1 w-full justify-center">
-            <VuMeter
-              mode={meterMode}
-              levelL={vu.l}
-              levelR={vu.r}
-              columnWidth={5}
-            />
-          </div>
-        </div>
-
-        {/* Vertical fader */}
-        <VerticalFader value={volume} onChange={onVolume} onChangeEnd={onVolumeEnd} accent={accent} />
+      {/* ── Fader (dB scale + rail + thumb + VU + M/S) ── */}
+      <div className="flex min-h-0 flex-1 overflow-hidden px-1.5 py-2">
+        <MixerFader
+          value={volume}
+          levelL={vu.l}
+          levelR={vu.r}
+          meterMode={meterMode}
+          muted={muted}
+          solo={solo}
+          isMaster={isMaster}
+          color={accent}
+          onChange={onVolume}
+          onCommit={onVolumeEnd}
+          onMute={onMute}
+          onSolo={onSolo}
+        />
       </div>
 
-      {/* ── Name + dB readout ── */}
+      {/* ── Name footer ── */}
       <div
         className="shrink-0 border-t border-white/[0.055] px-1.5 py-1.5 text-center"
         style={{ background: "rgba(0,0,0,0.22)" }}
@@ -409,9 +356,6 @@ function ChannelStrip({
           style={{ color: selected ? "rgba(238,242,245,0.92)" : "rgba(238,242,245,0.68)" }}
         >
           {label}
-        </span>
-        <span className="block text-[8px] tabular-nums text-white/30">
-          {volumeToDb(volume)}
         </span>
       </div>
 

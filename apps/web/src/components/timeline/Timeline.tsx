@@ -8,9 +8,9 @@ import { Playhead } from "./Playhead";
 import { FloatingToolsBar } from "./FloatingToolsBar";
 import { useUIStore, type ArrangementTool } from "../../store/uiStore";
 import { useProjectStore } from "../../store/projectStore";
-import { secondsPerBeat, snapTime } from "../../utils/musicalTime";
+import { secondsPerBeat, snapTime, timelineXToTime } from "../../utils/musicalTime";
 import { decodeAndAddAudioFile, addFileToTimeline } from "../../utils/importAudioToProject";
-import { TRACK_HEIGHT, HEADER_WIDTH } from "../../theme";
+import { TIMELINE_Z } from "../../utils/timelineZ";
 
 const MIN_PPS = 10;
 const MAX_PPS = 800;
@@ -92,8 +92,11 @@ export function Timeline() {
       let time = 0;
       if (scrollRef.current) {
         const rect = scrollRef.current.getBoundingClientRect();
-        const dropX = clientX - rect.left - HEADER_WIDTH + scrollRef.current.scrollLeft;
-        time = Math.max(0, dropX / pixelsPerSecond);
+        // The scroll container's left edge IS the outer timeline content origin
+        // (it spans full width including the sticky header lane), so
+        // timelineXToTime — which subtracts TIMELINE_CONTENT_LEFT internally —
+        // applies the same origin used by the playhead, ruler, and grid.
+        time = timelineXToTime(clientX - rect.left, pixelsPerSecond, scrollRef.current.scrollLeft);
         if (snapToGrid) {
           const spb = secondsPerBeat(bpm);
           time = snapTime(time, bpm, useProjectStore.getState().project.timeSignature ?? { numerator: 4, denominator: 4 }, pixelsPerSecond * spb);
@@ -187,7 +190,6 @@ export function Timeline() {
     ...tracks.flatMap((t) => t.clips.map((c) => c.startTime + c.duration + 4))
   );
   const timelineWidth = Math.max(1200, Math.ceil(timelineSeconds * pixelsPerSecond));
-  const trackContentHeight = Math.max(0, tracks.length * TRACK_HEIGHT);
 
   return (
     <div
@@ -199,7 +201,8 @@ export function Timeline() {
     >
       {dropHighlight && (
         <div
-          className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center border-2 border-dashed border-daw-accent/80 bg-daw-accent/[0.07]"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center border-2 border-dashed border-daw-accent/80 bg-daw-accent/[0.07]"
+          style={{ zIndex: TIMELINE_Z.modal }}
           aria-hidden
         >
           <span className="rounded-md border border-daw-accent/40 bg-daw-surface/90 px-3 py-2 text-[11px] font-semibold text-daw-accent shadow-lg">
@@ -218,26 +221,33 @@ export function Timeline() {
       <div className="relative flex-1 overflow-hidden bg-daw-bg">
         <FloatingToolsBar />
 
-        <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: TIMELINE_Z.grid }}>
           <TimelineGrid />
         </div>
 
         {/* scrollable track area — ctrl/cmd+wheel handled via non-passive listener */}
         <div
           ref={scrollRef}
-          className="absolute inset-0 z-10 overflow-auto"
-          style={{ cursor: TOOL_CURSOR[currentTool] }}
+          className="absolute inset-0 overflow-auto"
+          style={{ cursor: TOOL_CURSOR[currentTool], zIndex: TIMELINE_Z.scrollArea }}
           onScroll={(e) => setScrollX(e.currentTarget.scrollLeft)}
         >
           <TrackList timelineWidth={timelineWidth} />
-          <Playhead height={trackContentHeight} />
         </div>
       </div>
+
+      {/* Playhead spans the full height of this container (ruler + all track rows).
+          Positioned relative to the outer Timeline div so the triangle marker
+          sits correctly in the ruler area. */}
+      <Playhead />
 
       {addTrackOpen && <AddTrackDialog onClose={() => setAddTrackOpen(false)} />}
 
       {/* zoom controls */}
-      <div className="absolute bottom-4 right-4 z-30 flex items-center gap-1 rounded-full border border-daw-border bg-daw-surface px-2 py-1.5 shadow-xl">
+      <div
+        className="absolute bottom-4 right-4 flex items-center gap-1 rounded-full border border-daw-border bg-daw-surface px-2 py-1.5 shadow-xl"
+        style={{ zIndex: TIMELINE_Z.zoomControls }}
+      >
         <button
           onClick={() => zoom(0.75)}
           title="Zoom out [−]"

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useUIStore, type ArrangementTool } from "../../store/uiStore";
 import { DawIcon, type DawIconName } from "../../icons/dawIcons";
+import { TIMELINE_Z } from "../../utils/timelineZ";
 
 type ToolDef = {
   id: ArrangementTool;
@@ -45,7 +46,8 @@ export function FloatingToolsBar() {
 
   return (
     <div
-      className="absolute bottom-4 left-4 z-20"
+      className="absolute bottom-4 left-4"
+      style={{ zIndex: TIMELINE_Z.floatingTools }}
       // Prevent clicks from propagating to the timeline (selection etc.)
       onMouseDown={(e) => e.stopPropagation()}
     >

@@ -46,10 +46,12 @@ export function TimelineGrid() {
 
       const lines = getArrangementGridLines(pixelsPerSecond, bpm, timeSig, scrollX, W);
       for (const line of lines) {
+        // line.x is already Math.round()'d — add 0.5 for crisp 1 px lines.
+        const cx = line.x + 0.5;
         ctx.strokeStyle = GRID_COLOR[line.level];
         ctx.beginPath();
-        ctx.moveTo(line.x, 0);
-        ctx.lineTo(line.x, H);
+        ctx.moveTo(cx, 0);
+        ctx.lineTo(cx, H);
         ctx.stroke();
       }
     };

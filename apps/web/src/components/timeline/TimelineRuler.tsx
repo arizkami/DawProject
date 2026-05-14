@@ -7,10 +7,13 @@ import {
   Plus,
 } from "lucide-react";
 import {
+  contentXToTime,
   formatBarBeat,
   secondsPerBeat,
   snapTime,
+  timeToContentX,
 } from "../../utils/musicalTime";
+import { TIMELINE_Z } from "../../utils/timelineZ";
 import { getArrangementGridLines } from "../../utils/musicalGrid";
 import { transport } from "../../engine/Transport";
 import type { TimeSignature } from "../../utils/musicalTime";
@@ -60,28 +63,31 @@ export function TimelineRuler({ width, onAddTrack, snapToGrid, onToggleSnapToGri
       const lines = getArrangementGridLines(pixelsPerSecond, bpm, timeSig, scrollX, W);
       for (const line of lines) {
         const { x, level, showLabel, beat } = line;
+        // x is already Math.round()'d by getArrangementGridLines.
+        // Add 0.5 so 1 px lines land on pixel boundaries (no anti-alias blur).
+        const cx = x + 0.5;
 
         if (level === "sub") {
           ctx.strokeStyle = C.surfaceHigh;
           ctx.lineWidth   = 1;
           ctx.beginPath();
-          ctx.moveTo(x, RULER_HEIGHT - 4);
-          ctx.lineTo(x, RULER_HEIGHT);
+          ctx.moveTo(cx, RULER_HEIGHT - 4);
+          ctx.lineTo(cx, RULER_HEIGHT);
           ctx.stroke();
         } else if (level === "beat") {
           ctx.strokeStyle = C.border;
           ctx.lineWidth   = 1;
           ctx.beginPath();
-          ctx.moveTo(x, RULER_HEIGHT - 9);
-          ctx.lineTo(x, RULER_HEIGHT);
+          ctx.moveTo(cx, RULER_HEIGHT - 9);
+          ctx.lineTo(cx, RULER_HEIGHT);
           ctx.stroke();
         } else {
           // bar — full height tick
           ctx.strokeStyle = C.borderHard;
-          ctx.lineWidth   = 1.5;
+          ctx.lineWidth   = 1;
           ctx.beginPath();
-          ctx.moveTo(x, 0);
-          ctx.lineTo(x, RULER_HEIGHT);
+          ctx.moveTo(cx, 0);
+          ctx.lineTo(cx, RULER_HEIGHT);
           ctx.stroke();
         }
 
@@ -109,9 +115,9 @@ export function TimelineRuler({ width, onAddTrack, snapToGrid, onToggleSnapToGri
 
     const updateTime = (clientX: number) => {
       const rect = wrapRef.current!.getBoundingClientRect();
-      const x = clientX - rect.left;
+      const contentX = clientX - rect.left;
       const { scrollX: sx, pixelsPerSecond: pps, snapToGrid } = useUIStore.getState();
-      const rawSeconds = Math.max(0, (x + sx) / pps);
+      const rawSeconds = contentXToTime(contentX, pps, sx);
 
       if (snapToGrid) {
         const spb = secondsPerBeat(bpm);
@@ -135,8 +141,8 @@ export function TimelineRuler({ width, onAddTrack, snapToGrid, onToggleSnapToGri
   return (
     <div className="flex shrink-0 border-b border-daw-border bg-daw-surface" style={{ height: RULER_HEIGHT }}>
       <div
-        className="sticky left-0 z-30 flex shrink-0 items-center gap-2 border-r border-daw-border bg-daw-surface px-2 shadow-[8px_0_18px_rgba(0,0,0,0.28)]"
-        style={{ width: HEADER_WIDTH, minWidth: HEADER_WIDTH }}
+        className="sticky left-0 flex shrink-0 items-center gap-2 border-r border-daw-border bg-daw-surface px-2 shadow-[8px_0_18px_rgba(0,0,0,0.28)]"
+        style={{ width: HEADER_WIDTH, minWidth: HEADER_WIDTH, zIndex: TIMELINE_Z.rulerHeaderLane }}
       >
         <div className="pointer-events-none absolute bottom-0 right-[-12px] top-0 z-0 w-3 bg-gradient-to-r from-daw-surface to-transparent" />
         <span className="relative z-10 min-w-0 flex-1 truncate text-[11px] font-semibold text-daw-text">
@@ -170,70 +176,83 @@ export function TimelineRuler({ width, onAddTrack, snapToGrid, onToggleSnapToGri
       <div ref={wrapRef} className="flex-1 overflow-hidden cursor-crosshair relative" onPointerDown={handlePointerDown}>
         <canvas ref={canvasRef} className="block pointer-events-none" />
 
-        {/* Loop Region overlay */}
-        <div 
-          className="absolute top-0 bottom-0 pointer-events-none transition-colors"
-          style={{
-            left: loopStart * pixelsPerSecond - scrollX,
-            width: (loopEnd - loopStart) * pixelsPerSecond,
-            background: loopEnabled ? "rgba(123, 216, 143, 0.08)" : "rgba(255, 255, 255, 0.02)",
-            borderLeft: `1.5px solid ${loopEnabled ? "#7bd88f" : "rgba(255,255,255,0.2)"}`,
-            borderRight: `1.5px solid ${loopEnabled ? "#7bd88f" : "rgba(255,255,255,0.2)"}`,
-            zIndex: 10,
-          }}
-        />
+        {/* Loop Region overlay
+            Positions are Math.round'd to align with the integer-pixel ruler ticks.
+            box-sizing: border-box keeps the 1 px borders inside the computed width
+            so the right edge lands exactly at Math.round(loopEnd * pps - scrollX). */}
+        {(() => {
+          const lx = timeToContentX(loopStart, pixelsPerSecond, scrollX);
+          const rx = timeToContentX(loopEnd,   pixelsPerSecond, scrollX);
+          const loopColor = loopEnabled ? "#7bd88f" : "rgba(255,255,255,0.2)";
+          return (
+            <>
+              <div
+                className="absolute top-0 bottom-0 pointer-events-none"
+                style={{
+                  left: lx,
+                  width: Math.max(0, rx - lx),
+                  boxSizing: "border-box",
+                  background: loopEnabled ? "rgba(123,216,143,0.08)" : "rgba(255,255,255,0.02)",
+                  borderLeft:  `1px solid ${loopColor}`,
+                  borderRight: `1px solid ${loopColor}`,
+                  zIndex: TIMELINE_Z.loopRegion,
+                }}
+              />
 
-        {/* Loop Start Handle */}
-        <div
-          className="absolute top-0 w-3 h-3 cursor-ew-resize flex items-center justify-center z-20"
-          style={{ left: loopStart * pixelsPerSecond - scrollX - 0.75 }}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            const startX = e.clientX;
-            const initialStart = loopStart;
-            const onMove = (ev: PointerEvent) => {
-              let newStart = Math.max(0, initialStart + (ev.clientX - startX) / pixelsPerSecond);
-              if (useUIStore.getState().snapToGrid) {
-                const spb = secondsPerBeat(bpm);
-                newStart = snapTime(newStart, bpm, timeSig, pixelsPerSecond * spb);
-              }
-              setLoopStart(Math.min(newStart, loopEnd - 0.1));
-            };
-            const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
-            window.addEventListener("pointermove", onMove);
-            window.addEventListener("pointerup", onUp);
-          }}
-        >
-          <svg width="8" height="8" viewBox="0 0 8 8" className={`drop-shadow ${loopEnabled ? "text-[#7bd88f]" : "text-white/40"}`}>
-            <polygon points="0,0 8,0 8,8" fill="currentColor" />
-          </svg>
-        </div>
+              {/* Loop Start Handle — centered on the start border (lx) */}
+              <div
+                className="absolute top-0 w-3 h-3 cursor-ew-resize flex items-center justify-center"
+                style={{ left: lx - 6, zIndex: TIMELINE_Z.loopHandle }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  const startX = e.clientX;
+                  const initialStart = loopStart;
+                  const onMove = (ev: PointerEvent) => {
+                    let newStart = Math.max(0, initialStart + (ev.clientX - startX) / pixelsPerSecond);
+                    if (useUIStore.getState().snapToGrid) {
+                      const spb = secondsPerBeat(bpm);
+                      newStart = snapTime(newStart, bpm, timeSig, pixelsPerSecond * spb);
+                    }
+                    setLoopStart(Math.min(newStart, loopEnd - 0.1));
+                  };
+                  const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+                  window.addEventListener("pointermove", onMove);
+                  window.addEventListener("pointerup", onUp);
+                }}
+              >
+                <svg width="8" height="8" viewBox="0 0 8 8" className={`drop-shadow ${loopEnabled ? "text-[#7bd88f]" : "text-white/40"}`}>
+                  <polygon points="0,0 8,0 8,8" fill="currentColor" />
+                </svg>
+              </div>
 
-        {/* Loop End Handle */}
-        <div
-          className="absolute top-0 w-3 h-3 cursor-ew-resize flex items-center justify-center z-20"
-          style={{ left: loopEnd * pixelsPerSecond - scrollX - 6 + 0.75 }}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            const startX = e.clientX;
-            const initialEnd = loopEnd;
-            const onMove = (ev: PointerEvent) => {
-              let newEnd = Math.max(0, initialEnd + (ev.clientX - startX) / pixelsPerSecond);
-              if (useUIStore.getState().snapToGrid) {
-                const spb = secondsPerBeat(bpm);
-                newEnd = snapTime(newEnd, bpm, timeSig, pixelsPerSecond * spb);
-              }
-              setLoopEnd(Math.max(loopStart + 0.1, newEnd));
-            };
-            const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
-            window.addEventListener("pointermove", onMove);
-            window.addEventListener("pointerup", onUp);
-          }}
-        >
-          <svg width="8" height="8" viewBox="0 0 8 8" className={`drop-shadow ${loopEnabled ? "text-[#7bd88f]" : "text-white/40"}`}>
-            <polygon points="0,0 8,0 0,8" fill="currentColor" />
-          </svg>
-        </div>
+              {/* Loop End Handle — centered on the end border (rx) */}
+              <div
+                className="absolute top-0 w-3 h-3 cursor-ew-resize flex items-center justify-center"
+                style={{ left: rx - 6, zIndex: TIMELINE_Z.loopHandle }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  const startX = e.clientX;
+                  const initialEnd = loopEnd;
+                  const onMove = (ev: PointerEvent) => {
+                    let newEnd = Math.max(0, initialEnd + (ev.clientX - startX) / pixelsPerSecond);
+                    if (useUIStore.getState().snapToGrid) {
+                      const spb = secondsPerBeat(bpm);
+                      newEnd = snapTime(newEnd, bpm, timeSig, pixelsPerSecond * spb);
+                    }
+                    setLoopEnd(Math.max(loopStart + 0.1, newEnd));
+                  };
+                  const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+                  window.addEventListener("pointermove", onMove);
+                  window.addEventListener("pointerup", onUp);
+                }}
+              >
+                <svg width="8" height="8" viewBox="0 0 8 8" className={`drop-shadow ${loopEnabled ? "text-[#7bd88f]" : "text-white/40"}`}>
+                  <polygon points="0,0 8,0 0,8" fill="currentColor" />
+                </svg>
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );

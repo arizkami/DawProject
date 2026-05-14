@@ -102,3 +102,87 @@ export function snapTime(
   const snapped = Math.round(totalBeats / subDiv) * subDiv;
   return Math.max(0, snapped * spb);
 }
+
+// ── Shared timeline coordinate helpers ───────────────────────────────────────
+// Single source of truth for ruler, grid, playhead, loop region, and clips.
+//
+// Two coordinate spaces:
+//   • CONTENT x — pixels inside the ruler-wrap / grid-wrap (origin = right of
+//     the track-header lane).  Used by canvas drawing and loop overlays.
+//   • TIMELINE x — pixels inside the outer Timeline container (origin =
+//     left of the track-header lane).  Used by the playhead overlay which
+//     spans ruler + body and must straddle the header boundary.
+//
+// TIMELINE x = CONTENT x + TIMELINE_CONTENT_LEFT
+//
+// Importing HEADER_WIDTH from theme keeps the origin in one place.
+import { HEADER_WIDTH } from "../theme";
+
+/** Left edge of the timeline content area within the outer Timeline div. */
+export const TIMELINE_CONTENT_LEFT = HEADER_WIDTH;
+
+/** Time → CONTENT x.  Integer-rounded so layers land on the same pixel column. */
+export function timeToContentX(
+  timeSec: number,
+  pixelsPerSecond: number,
+  scrollX: number,
+): number {
+  return Math.round(timeSec * pixelsPerSecond - scrollX);
+}
+
+/** CONTENT x → time. */
+export function contentXToTime(
+  x: number,
+  pixelsPerSecond: number,
+  scrollX: number,
+): number {
+  return Math.max(0, (x + scrollX) / Math.max(1, pixelsPerSecond));
+}
+
+/** Time → TIMELINE x (for absolute overlays placed in the outer Timeline div). */
+export function timeToTimelineX(
+  timeSec: number,
+  pixelsPerSecond: number,
+  scrollX: number,
+): number {
+  return TIMELINE_CONTENT_LEFT + timeToContentX(timeSec, pixelsPerSecond, scrollX);
+}
+
+/** TIMELINE x → time.  Inverse of timeToTimelineX. */
+export function timelineXToTime(
+  x: number,
+  pixelsPerSecond: number,
+  scrollX: number,
+): number {
+  return contentXToTime(x - TIMELINE_CONTENT_LEFT, pixelsPerSecond, scrollX);
+}
+
+/** Beat → CONTENT x. */
+export function beatsToX(
+  beats: number,
+  pixelsPerSecond: number,
+  bpm: number,
+  scrollX: number,
+): number {
+  return timeToContentX(beats * secondsPerBeat(bpm), pixelsPerSecond, scrollX);
+}
+
+/** CONTENT x → beat.  Inverse of beatsToX. */
+export function xToBeats(
+  x: number,
+  pixelsPerSecond: number,
+  bpm: number,
+  scrollX: number,
+): number {
+  return contentXToTime(x, pixelsPerSecond, scrollX) / secondsPerBeat(bpm);
+}
+
+/** Snap a raw beat value to the nearest grid subdivision. */
+export function snapBeats(
+  beats: number,
+  pixelsPerBeat: number,
+  timeSig: TimeSignature,
+): number {
+  const subDiv = getGridSubBeats(pixelsPerBeat, timeSig);
+  return Math.max(0, Math.round(beats / subDiv) * subDiv);
+}
