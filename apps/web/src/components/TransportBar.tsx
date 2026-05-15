@@ -1,4 +1,5 @@
 import {
+  Bug,
   Check,
   ChevronDown,
   ChevronRight,
@@ -162,6 +163,37 @@ function TopMenuButton({
       ].join(" ")}
     >
       {label}
+    </button>
+  );
+}
+
+function ReportBugBtn() {
+  return (
+    <button
+      type="button"
+      title="Report a bug"
+      onClick={() =>
+        window.open("https://tally.so/r/816zak", "_blank")
+      }
+      className="app-no-drag flex h-7 items-center gap-1.5 rounded-md border px-2 text-[10px] font-semibold transition-colors"
+      style={{
+        background: "rgba(251,191,36,0.07)",
+        borderColor: "rgba(251,191,36,0.22)",
+        color: "rgba(251,191,36,0.70)",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = "rgba(251,191,36,0.14)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(251,191,36,0.40)";
+        (e.currentTarget as HTMLButtonElement).style.color = "rgba(251,191,36,0.95)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = "rgba(251,191,36,0.07)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(251,191,36,0.22)";
+        (e.currentTarget as HTMLButtonElement).style.color = "rgba(251,191,36,0.70)";
+      }}
+    >
+      <Bug size={11} />
+      <span>Report bug</span>
     </button>
   );
 }
@@ -875,6 +907,10 @@ export function TransportBar({ onImport, onSave }: { onImport?: () => void; onSa
           <IconBtn icon={FolderOpen} label="Import Audio" onClick={onImport} />
           <IconBtn icon={Save} label="Save Project" onClick={onSave} />
           <IconBtn icon={Share2} label="Share" disabled />
+
+          <Divider />
+
+          <ReportBugBtn />
         </div>
       </div>
 
