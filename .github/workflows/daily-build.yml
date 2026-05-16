@@ -1,0 +1,142 @@
+name: Daily Build
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # midnight UTC every day
+  workflow_dispatch:
+
+concurrency:
+  group: daily-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            artifact-name: futureboard-win
+            artifact-glob: apps/electron/release/*.exe
+          - os: macos-latest
+            platform: mac
+            artifact-name: futureboard-mac
+            artifact-glob: apps/electron/release/*.dmg
+          - os: ubuntu-24.04
+            platform: linux
+            artifact-name: futureboard-linux
+            artifact-glob: apps/electron/release/*.AppImage
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+            apps/*/node_modules
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install Linux build dependencies
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libarchive-tools fakeroot rpm libopenjp2-tools
+
+      - name: Setup Rust + wasm32 target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            frameworks/SphereWebAudioCore/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('frameworks/SphereWebAudioCore/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+
+      - name: Build WASM (SphereWebAudioCore)
+        run: wasm-pack build frameworks/SphereWebAudioCore --target web --release --out-dir ../../apps/web/src/engine/wasm-pkg
+
+      - name: Build & package (${{ matrix.platform }})
+        run: bun run dist:electron:${{ matrix.platform }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ matrix.platform == 'win' && secrets.WIN_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'win' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ matrix.platform == 'mac' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.platform == 'mac' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ matrix.platform == 'mac' && secrets.APPLE_TEAM_ID || '' }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-glob }}
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    name: Publish Pre-Release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -lh dist/
+
+      - name: Delete previous nightly tag + release
+        run: |
+          gh release delete nightly --yes --cleanup-tag || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+
+      - name: Publish nightly pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: "Nightly Build #${{ github.run_number }}"
+          body: |
+            **Automated daily build** from `${{ github.ref_name }}`
+            Commit: `${{ github.sha }}`
+
+            > Pre-release snapshot — may be unstable, not for production use.
+          files: dist/*
+          prerelease: true
+          draft: false
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
