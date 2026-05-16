@@ -27,6 +27,7 @@ type TrackNodes = {
   analyserR:   AnalyserNode;
   bufL:        Float32Array;
   bufR:        Float32Array;
+  spectrum:    Float32Array;
   _userMuted:  boolean;
   muted:       boolean;
   solo:        boolean;
@@ -121,6 +122,7 @@ class Mixer {
         analyserR,
         bufL: analyserSampleBuffer(ANALYSER_FFT),
         bufR: analyserSampleBuffer(ANALYSER_FFT),
+        spectrum: new Float32Array(analyserL.frequencyBinCount),
         _userMuted: false,
         muted: false,
         solo: false,
@@ -215,6 +217,13 @@ class Mixer {
     readAnalyserTimeDomain(nodes.analyserL, nodes.bufL);
     readAnalyserTimeDomain(nodes.analyserR, nodes.bufR);
     return { l: rms(nodes.bufL), r: rms(nodes.bufR) };
+  }
+
+  getSpectrum(trackId: TrackId): Float32Array | null {
+    const nodes = this.tracks.get(trackId);
+    if (!nodes) return null;
+    nodes.analyserL.getFloatFrequencyData(nodes.spectrum as Float32Array<ArrayBuffer>);
+    return nodes.spectrum;
   }
 
   getMasterLevel(): StereoLevel {

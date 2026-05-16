@@ -25,7 +25,7 @@ import type { DawFile, DawProject, DawTrack, InsertDevice, TrackSend } from "../
 import { buildTrackContextMenu } from "../menu/trackContextMenu";
 import { getSendTargets } from "../utils/routingHelpers";
 import { AddTrackSendCommand, RemoveTrackSendCommand } from "../commands";
-import { EQUZ8_DEFAULT_PARAMS, serializeEquz8Params } from "../../../../plugins/Equz8";
+import { BUILT_IN_PLUGINS, type BuiltInPlugin } from "../plugins/registry";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -88,18 +88,27 @@ const SectionAddButton = forwardRef<HTMLButtonElement, SectionAddButtonProps>(
 
 function InsertsAddMenu({ accent, trackId }: { accent: string; trackId?: string }) {
   const { addInsertDevice } = useProjectStore();
-  const add = (name: string, type: InsertDevice["type"]) => {
+  const add = (plugin: BuiltInPlugin) => {
     if (!trackId) return;
     const device: InsertDevice = {
       id: crypto.randomUUID(),
-      type,
-      name,
+      type: plugin.type,
+      name: plugin.name,
       enabled: true,
       order: 0,
-      params: type === "eq" ? serializeEquz8Params(EQUZ8_DEFAULT_PARAMS) : {},
+      params: plugin.defaultParams(),
     };
     addInsertDevice(trackId, device);
   };
+
+  const iconForPlugin = (plugin: BuiltInPlugin) => {
+    if (plugin.type === "eq") return Activity;
+    if (plugin.type === "delay") return AudioLines;
+    if (plugin.type === "reverb") return Waves;
+    if (plugin.type === "optical-compressor" || plugin.type === "compressor") return Gauge;
+    return Sparkles;
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -107,11 +116,11 @@ function InsertsAddMenu({ accent, trackId }: { accent: string; trackId?: string 
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={4}>
         <DropdownMenuLabel>Add Device</DropdownMenuLabel>
-        <DropdownMenuItem icon={Activity}    onSelect={() => add("Equz8", "eq")}>Add Equz8</DropdownMenuItem>
-        <DropdownMenuItem icon={Gauge}       onSelect={() => add("Compressor", "compressor")}>Add Compressor</DropdownMenuItem>
-        <DropdownMenuItem icon={Waves}       onSelect={() => add("Reverb", "reverb")}>Add Reverb</DropdownMenuItem>
-        <DropdownMenuItem icon={AudioLines}  onSelect={() => add("Delay", "delay")}>Add Delay</DropdownMenuItem>
-        <DropdownMenuItem icon={Sparkles}    onSelect={() => add("Saturation", "saturator")}>Add Saturation</DropdownMenuItem>
+        {BUILT_IN_PLUGINS.map((plugin) => (
+          <DropdownMenuItem key={plugin.id} icon={iconForPlugin(plugin)} onSelect={() => add(plugin)}>
+            Add {plugin.name}
+          </DropdownMenuItem>
+        ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem icon={Boxes} disabled>Browse Devices…</DropdownMenuItem>
         <DropdownMenuItem icon={Plug} disabled>Plugin Manager…</DropdownMenuItem>

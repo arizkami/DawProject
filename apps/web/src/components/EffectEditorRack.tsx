@@ -5,6 +5,7 @@ import { useProjectStore } from "../store/projectStore";
 import { getTrackInserts } from "../store/selectors";
 import type { InsertDevice } from "../types/daw";
 import { BUILT_IN_PLUGINS, findPlugin } from "../plugins/registry";
+import { mixer } from "../engine/Mixer";
 
 type Param = { name: string; value: number; min: number; max: number; unit: string };
 
@@ -121,6 +122,7 @@ export function EffectEditorRack() {
             <DeviceCard
               key={ins.id}
               insert={ins}
+              trackId={track.id}
               onToggleBypass={() => toggleBypass(ins.id)}
               onRemove={() => removeInsert(ins.id)}
               onParamsChange={(patch) =>
@@ -215,11 +217,13 @@ function AddMenuItem({
 
 function DeviceCard({
   insert,
+  trackId,
   onToggleBypass,
   onRemove,
   onParamsChange,
 }: {
   insert: InsertDevice;
+  trackId: string;
   onToggleBypass: () => void;
   onRemove: () => void;
   onParamsChange: (patch: Record<string, number | string | boolean>) => void;
@@ -235,6 +239,7 @@ function DeviceCard({
         onParamsChange={onParamsChange}
         onToggleEnabled={onToggleBypass}
         onReset={() => onParamsChange(plugin.defaultParams())}
+        getSpectrum={() => mixer.getSpectrum(trackId)}
       />
     );
   }

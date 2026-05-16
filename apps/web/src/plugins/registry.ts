@@ -11,6 +11,7 @@ export type PluginEditorProps = {
   onParamsChange: (patch: Record<string, number | string | boolean>) => void;
   onToggleEnabled: () => void;
   onReset: () => void;
+  getSpectrum?: () => Float32Array | null;
 };
 
 export type BuiltInPlugin = {
