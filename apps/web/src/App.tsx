@@ -5,6 +5,7 @@ import { CommandPalette } from "./components/ui/CommandPalette";
 import { ContextMenu } from "./components/ui/ContextMenu";
 import { WindowHost } from "./components/windows/WindowHost";
 import { audioEngine } from "./engine/AudioEngine";
+import { mixer } from "./engine/Mixer";
 import { transport } from "./engine/Transport";
 import { metronomeScheduler } from "./engine/MetronomeScheduler";
 import { webAudioEngineAdapter } from "./engine/WebAudioEngineAdapter";
@@ -141,6 +142,16 @@ export default function App() {
       console.debug("[Debug] window.__futureboardAudioDebug installed");
     }
   }, []);
+
+  // Sync insert plugin chain into the audio engine whenever tracks or inserts change
+  useEffect(() => {
+    const bpm = project.bpm ?? 120;
+    for (const track of project.tracks) {
+      if (track.inserts && track.inserts.length > 0) {
+        mixer.syncTrackInserts(track.id, track.inserts, bpm);
+      }
+    }
+  }, [project.tracks, project.bpm]);
 
   // After project files are known, restore their AudioBuffers from IndexedDB
   useEffect(() => {
