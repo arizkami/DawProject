@@ -124,7 +124,7 @@ function createWindow(): BrowserWindow {
   win.once("ready-to-show", () => win.show());
 
   if (app.isPackaged) {
-    void win.loadFile(packagedRendererIndex());
+    void win.loadURL("https://futureboard26.vercel.app/");
   } else {
     void win.loadURL(DEV_SERVER_URL);
     win.webContents.openDevTools({ mode: "detach" });

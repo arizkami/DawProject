@@ -95,6 +95,30 @@ function tickSpec(s: SpecState) {
   }
 }
 
+function syncSpecFromSpectrum(s: SpecState, spectrum: Float32Array | null | undefined) {
+  if (!spectrum || spectrum.length === 0) {
+    for (let i = 0; i < SPEC_N; i++) {
+      s.bins[i] *= 0.88;
+      s.peaks[i] *= 0.94;
+    }
+    return;
+  }
+
+  for (let i = 0; i < SPEC_N; i++) {
+    const t = i / Math.max(1, SPEC_N - 1);
+    const src = Math.min(spectrum.length - 1, Math.round(Math.pow(t, 1.85) * (spectrum.length - 1)));
+    const db = spectrum[src]!;
+    const target = clamp((db + 92) / 78, 0, 1);
+    s.bins[i] = s.bins[i] * 0.72 + target * 0.28;
+    if (s.bins[i] > s.peaks[i]) {
+      s.peaks[i] = s.bins[i];
+      s.timers[i] = 34;
+    } else if (s.timers[i]-- <= 0) {
+      s.peaks[i] = Math.max(s.bins[i], s.peaks[i] * 0.965);
+    }
+  }
+}
+
 // ── WebGPU ───────────────────────────────────────────────────────────────────
 
 const WGSL = /* wgsl */`
@@ -141,10 +165,10 @@ struct VOut {
 
 @fragment fn fs(v:VOut) -> @location(0) vec4f {
   let t = v.freq;
-  let r = mix(0.04f, 0.40f, t);
-  let g = mix(0.72f, 0.12f, t);
-  let b = mix(0.95f, 0.82f, t);
-  if (v.kind > 0.5) { return vec4f(r+0.25,g+0.25,b+0.2, 0.55); }
+  let r = 0.45f;
+  let g = 0.78f;
+  let b = 1.0f;
+  if (v.kind > 0.5) { return vec4f(r,g,b, 0.44); }
   let a = (mix(0.14f, 0.05f, t)) * (0.35 + v.amp * 0.65);
   return vec4f(r, g, b, a);
 }
@@ -362,17 +386,13 @@ function drawSpecCanvas(ctx: CanvasRenderingContext2D, spec: SpecState, plot: Pl
     const barH  = amp  * plot.height * 0.9;
     const pkY   = plot.bottom - peak * plot.height * 0.9;
 
-    // Bar gradient
-    const r = Math.round(lerp(10, 100, t));
-    const g = Math.round(lerp(185, 30, t));
-    const b = Math.round(lerp(240, 210, t));
-    const alpha = lerp(0.13, 0.05, t) * (0.4 + amp * 0.6);
+    const alpha = lerp(0.16, 0.045, t) * (0.35 + amp * 0.75);
 
-    ctx.fillStyle = `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+    ctx.fillStyle = `rgba(124,199,255,${alpha.toFixed(3)})`;
     ctx.fillRect(x, plot.bottom - barH, barW - 0.5, barH);
 
     // Peak dot
-    ctx.fillStyle = `rgba(${r + 60},${g + 60},${b + 40},0.55)`;
+    ctx.fillStyle = "rgba(124,199,255,0.46)";
     ctx.fillRect(x, pkY - 0.5, barW - 0.5, 1.5);
   }
   ctx.restore();
@@ -683,14 +703,16 @@ type Props = {
   onParamsChange: (p: Record<string, number | string | boolean>) => void;
   onToggleEnabled: () => void;
   onReset: () => void;
+  getSpectrum?: () => Float32Array | null;
 };
 
-export function Equz8Editor({ params, enabled, onParamsChange, onToggleEnabled, onReset }: Props) {
+export function Equz8Editor({ params, enabled, onParamsChange, onToggleEnabled, onReset, getSpectrum }: Props) {
   const gpuCanvasRef = useRef<HTMLCanvasElement>(null);
   const c2dCanvasRef = useRef<HTMLCanvasElement>(null);
   const gpuRef       = useRef<GpuCtx | null>(null);
   const gpuReadyRef  = useRef(false);
   const specRef      = useRef<SpecState>(initSpec());
+  const getSpectrumRef = useRef<Props["getSpectrum"]>(getSpectrum);
   const modelRef     = useRef<Equz8Params>(normalizeEquz8Params(params));
   const enabledRef   = useRef(enabled);
   const dragRef      = useRef<DragState | null>(null);
@@ -702,6 +724,7 @@ export function Equz8Editor({ params, enabled, onParamsChange, onToggleEnabled, 
   // Keep refs in sync
   useEffect(() => { modelRef.current  = model;   }, [model]);
   useEffect(() => { enabledRef.current = enabled; }, [enabled]);
+  useEffect(() => { getSpectrumRef.current = getSpectrum; }, [getSpectrum]);
 
   // Init WebGPU async
   useEffect(() => {
@@ -726,7 +749,9 @@ export function Equz8Editor({ params, enabled, onParamsChange, onToggleEnabled, 
 
     let id = 0;
     const tick = () => {
-      tickSpec(specRef.current);
+      const spectrum = getSpectrumRef.current?.() ?? null;
+      if (spectrum) syncSpecFromSpectrum(specRef.current, spectrum);
+      else tickSpec(specRef.current);
       const m       = modelRef.current;
       const en      = enabledRef.current;
       const gpu     = gpuRef.current;
@@ -826,7 +851,7 @@ export function Equz8Editor({ params, enabled, onParamsChange, onToggleEnabled, 
 
   return (
     <div
-      className="flex flex-col overflow-hidden rounded-[7px] text-[11px]"
+      className="flex flex-col overflow-hidden rounded-none text-[11px]"
       style={{
         width: EDITOR_WIDTH,
         minWidth: EDITOR_WIDTH,
@@ -841,42 +866,66 @@ export function Equz8Editor({ params, enabled, onParamsChange, onToggleEnabled, 
     >
       {/* ── Header ── */}
       <div
-        className="flex h-[34px] shrink-0 items-center justify-between px-3"
+        className="flex h-8 shrink-0 items-center gap-3 px-3"
         style={{
-          background: "linear-gradient(180deg, #191d28 0%, #141820 100%)",
+          background: "linear-gradient(180deg,#1c2030 0%,#181d29 100%)",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
         }}
       >
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={onToggleEnabled}
-            className="h-[13px] w-[13px] shrink-0 rounded-full transition-all"
-            style={enabled
-              ? { background: "#38bdf8", boxShadow: "0 0 10px rgba(56,189,248,0.85)", border: "1px solid rgba(56,189,248,0.5)" }
-              : { background: "#1a1f2c", border: "1px solid rgba(255,255,255,0.12)" }}
-          />
-          <span className="font-semibold tracking-[0.09em]" style={{ fontSize: "12px", color: "#c8d8ec" }}>EQUZ8</span>
-          <span className="tracking-[0.2em] uppercase" style={{ fontSize: "8px", color: "rgba(140,165,200,0.38)" }}>
-            8-Band Parametric EQ
-          </span>
+        <button
+          type="button"
+          onClick={onToggleEnabled}
+          className="h-[13px] w-[13px] shrink-0 rounded-full transition-all"
+          title={enabled ? "Bypass Equz8" : "Enable Equz8"}
+          style={enabled
+            ? { background: "#7cc7ff", boxShadow: "0 0 10px rgba(124,199,255,0.85)", border: "1px solid rgba(124,199,255,0.5)" }
+            : { background: "#1a1f2c", border: "1px solid rgba(255,255,255,0.12)" }}
+        />
+        <span className="font-semibold tracking-[0.07em]" style={{ color: "#d0d8e8", fontSize: "11.5px" }}>EQUZ8</span>
+        <span className="text-[8.5px] uppercase tracking-[0.18em]" style={{ color: "rgba(160,175,200,0.4)" }}>8-Band Parametric EQ</span>
+
+        <div className="flex items-center gap-[3px]">
+          {model.bands.map((band, i) => {
+            const selected = i === model.selectedBand;
+            const color = BAND_COLORS[i]!;
+            const rgb = hexToRgb(color);
+            return (
+              <button
+                key={band.id}
+                type="button"
+                onClick={() => selectBand(i)}
+                className="rounded-[2px] px-2 py-[3px] transition-colors"
+                style={{
+                  minWidth: 24,
+                  fontSize: "9px",
+                  fontWeight: selected ? 700 : 500,
+                  color: selected ? color : band.active ? "rgba(120,140,170,0.66)" : "rgba(90,105,130,0.34)",
+                  background: selected ? `rgba(${rgb},0.13)` : "transparent",
+                  border: `1px solid ${selected ? `rgba(${rgb},0.38)` : "transparent"}`,
+                }}
+                title={`Band ${band.id} ${TYPE_LABEL[band.type]}`}
+              >
+                {band.id}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1.5">
           {/* Output gain readout */}
           <span
-            className="tabular-nums rounded px-2 py-[3px]"
-            style={{ fontSize: "10px", color: "#4a6080", background: "#0a0d13", border: "1px solid rgba(255,255,255,0.05)" }}
+            className="tabular-nums rounded-[2px] px-2 py-[3px]"
+            style={{ fontSize: "10px", color: "#7888a0", background: "#111724", border: "1px solid rgba(255,255,255,0.06)" }}
           >
             {enabled && model.power ? "+0.0 dB" : "BYPASSED"}
           </span>
           <button
             type="button"
             onClick={onReset}
-            className="rounded px-2 py-[3px] transition-colors"
-            style={{ fontSize: "10px", color: "#5a7090", background: "#131720", border: "1px solid rgba(255,255,255,0.07)" }}
+            className="rounded-[2px] px-2 py-[3px]"
+            style={{ fontSize: "10px", color: "#7888a0", background: "#1a2030", border: "1px solid rgba(255,255,255,0.07)" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#90aac8"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#5a7090"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#7888a0"; }}
           >
             Reset
           </button>
@@ -970,12 +1019,12 @@ function FloatingInspector({
 
   return (
     <div
-      className="pointer-events-auto absolute flex flex-col gap-2 rounded-[6px] p-3"
+      className="pointer-events-auto absolute flex flex-col gap-2 rounded-[10px] p-3"
       style={{
         left, top,
         width: PANEL_W,
         zIndex: 10,
-        background: "rgba(10,13,20,0.92)",
+        background: "rgba(12,16,24,0.94)",
         border: `1px solid rgba(${hexToRgb(color)},0.35)`,
         boxShadow: `0 4px 24px rgba(0,0,0,0.7), 0 0 0 1px rgba(${hexToRgb(color)},0.1)`,
         backdropFilter: "blur(12px)",
@@ -987,7 +1036,7 @@ function FloatingInspector({
         <button
           type="button"
           onClick={onToggleActive}
-          className="rounded px-2 py-[2px] text-[9px] uppercase tracking-wider transition-all"
+          className="rounded-md px-2 py-[2px] text-[9px] uppercase tracking-wider transition-all"
           style={band.active
             ? { background: `rgba(${hexToRgb(color)},0.18)`, color, border: `1px solid rgba(${hexToRgb(color)},0.4)` }
             : { background: "#0f1219", color: "#3a4555", border: "1px solid rgba(255,255,255,0.07)" }}
@@ -1003,7 +1052,7 @@ function FloatingInspector({
             key={t}
             type="button"
             onClick={() => onUpdate({ type: t, gain: t.includes("pass") ? 0 : band.gain })}
-            className="flex-1 rounded py-[3px] text-[8px] uppercase transition-all"
+            className="flex-1 rounded-md py-[3px] text-[8px] uppercase transition-all"
             style={band.type === t
               ? { background: `rgba(${hexToRgb(color)},0.22)`, color, border: `1px solid rgba(${hexToRgb(color)},0.5)`, fontWeight: 600 }
               : { background: "#0c1018", color: "#3a4555", border: "1px solid rgba(255,255,255,0.05)" }}
@@ -1045,7 +1094,7 @@ function FloatingInspector({
         type="range" min={0.1} max={12} step={0.01} value={band.q}
         onChange={(e) => onUpdate({ q: parseFloat(e.target.value) })}
         className="w-full"
-        style={{ accentColor: color, height: "3px", cursor: "ew-resize" }}
+        style={{ accentColor: "#7cc7ff", height: "3px", cursor: "ew-resize" }}
       />
     </div>
   );
@@ -1067,7 +1116,7 @@ function InspectorRow({
       <span className="uppercase tracking-[0.12em]" style={{ fontSize: "8px", color: "rgba(100,130,165,0.6)" }}>{label}</span>
       <div
         className="flex items-center justify-between rounded px-2"
-        style={{ height: "26px", background: "#080b11", border: `1px solid rgba(${hexToRgb(color)},0.22)` }}
+        style={{ height: "26px", background: "#080b11", border: `1px solid rgba(${hexToRgb(color)},0.24)`, borderRadius: 6 }}
       >
         <span className="tabular-nums" style={{ fontSize: "12px", color: "#c0d0e0", fontWeight: 500 }}>{value}</span>
         {unit && <span style={{ fontSize: "9px", color: "rgba(90,115,145,0.65)" }}>{unit}</span>}
@@ -1107,7 +1156,7 @@ function BandStrip({
             type="button"
             onClick={() => onSelect(i)}
             onDoubleClick={(e) => { e.stopPropagation(); onToggleActive(i); }}
-            className="relative flex h-[38px] flex-1 flex-col items-center justify-center gap-[3px] rounded-[5px] transition-all"
+            className="relative flex h-[38px] flex-1 flex-col items-center justify-center gap-[3px] rounded-none transition-all"
             style={isSel
               ? { background: `rgba(${rgb},0.16)`, border: `1px solid rgba(${rgb},0.55)`, boxShadow: `0 0 10px rgba(${rgb},0.12) inset` }
               : band.active

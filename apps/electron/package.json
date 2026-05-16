@@ -12,8 +12,8 @@
     "start": "electron .",
     "build:renderer": "bun run --cwd ../web build",
     "build:all": "bun run build:renderer && bun run build",
-    "pack": "bun run build:all && electron-builder --dir",
-    "dist": "bun run build:all && electron-builder",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
     "dist:win": "bun run build:all && electron-builder --win",
     "dist:mac": "bun run build:all && electron-builder --mac",
     "dist:linux": "bun run build:all && electron-builder --linux"
