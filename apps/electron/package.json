@@ -1,7 +1,7 @@
 {
   "name": "futureboard-studio",
   "private": true,
-  "version": "2026.05-alpha1",
+  "version": "2026.05.17",
   "description": "Futureboard Studio",
   "author": "Arizkami",
   "type": "module",
