@@ -1,0 +1,46 @@
+[package]
+name    = "sphere-direct-audio-engine"
+version = "0.1.0"
+edition = "2021"
+description = "SphereDirectAudioEngine — native Rust audio backend for Futureboard Studio"
+
+# ── Library target (N-API native module for Electron) ────────────────────────
+# "cdylib"  → .node addon loaded by Node.js / Electron
+# "rlib"    → static Rust library so [[bin]] targets in this crate can link it
+[lib]
+name       = "sphere_direct_audio_engine"
+crate-type = ["cdylib", "rlib"]
+
+# ── CLI test harness (cargo run --bin sphere-audio-test) ─────────────────────
+[[bin]]
+name = "sphere-audio-test"
+path = "src/bin/sphere_audio_test.rs"
+
+# ── Runtime dependencies ──────────────────────────────────────────────────────
+[dependencies]
+# N-API binding framework (Electron / Node.js native addon)
+napi        = { version = "2", features = ["napi4"] }
+napi-derive = "2"
+
+# Cross-platform audio I/O
+cpal = "0.15"
+
+# Lock-free channel for control→audio thread commands
+crossbeam-channel = "0.5"
+
+# Parking-lot mutexes (panic-safe, no poisoning)
+parking_lot = "0.12"
+
+# JSON for project snapshot serialization
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[build-dependencies]
+napi-build = "2"
+
+# ── Release profile (audio engine must be fast) ───────────────────────────────
+[profile.release]
+opt-level = 3
+lto       = true
+codegen-units = 1
+panic     = "abort"

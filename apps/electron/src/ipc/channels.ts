@@ -42,6 +42,23 @@ export const IpcChannels = {
   ProjectFolderOpenFile: "daw:project:folderOpenFile",
   ProjectFolderImportAudio: "daw:project:folderImportAudio",
   FsEnsureProjectFolders: "daw:fs:ensureProjectFolders",
+
+  // SphereDirectAudioEngine — native Rust audio backend (Electron only)
+  SphereAudioGetStatus:        "daw:sphere:getStatus",
+  SphereAudioGetVersion:       "daw:sphere:getVersion",
+  SphereAudioListInputDevices: "daw:sphere:listInputDevices",
+  SphereAudioListOutputDevices:"daw:sphere:listOutputDevices",
+  SphereAudioOpenDevice:       "daw:sphere:openDevice",
+  SphereAudioCloseDevice:      "daw:sphere:closeDevice",
+  SphereAudioStart:            "daw:sphere:start",
+  SphereAudioStop:             "daw:sphere:stop",
+  SphereAudioSetTransport:     "daw:sphere:setTransportState",
+  SphereAudioGetTransport:     "daw:sphere:getTransportState",
+  SphereAudioUpdateTrackParam: "daw:sphere:updateTrackParam",
+  SphereAudioUpdateInsertParam:"daw:sphere:updateInsertParam",
+  SphereAudioLoadProject:      "daw:sphere:loadProject",
+  SphereAudioUpdateClip:       "daw:sphere:updateClip",
+  SphereAudioGetMeters:        "daw:sphere:getMeters",
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -144,4 +161,46 @@ export type ExternalWindowConfig = {
   frame?: boolean;
   transparent?: boolean;
   resizable?: boolean;
+};
+
+// ── SphereDirectAudioEngine IPC types ─────────────────────────────────────────
+
+export type SphereAudioStatus = {
+  running:      boolean;
+  version:      string;
+  sampleRate:   number;
+  bufferSize:   number;
+  inputDevice:  string | null;
+  outputDevice: string | null;
+  cpuLoad:      number;
+  xrunCount:    number;
+};
+
+export type SphereAudioDeviceInfo = {
+  id:           string;
+  name:         string;
+  channelCount: number;
+  sampleRates:  number[];
+  isDefault:    boolean;
+};
+
+export type SphereDeviceOpenConfig = {
+  inputDeviceId?:  string;
+  outputDeviceId?: string;
+  sampleRate?:     number;
+  bufferSize?:     number;
+};
+
+export type SphereTransportState = {
+  playing?:         boolean;
+  positionSeconds?: number;
+  loop?:            boolean;
+  loopStart?:       number;
+  loopEnd?:         number;
+};
+
+export type SphereMeterSnapshot = {
+  tracks:    Record<string, { left: number; right: number }>;
+  master:    { left: number; right: number };
+  timestamp: number;
 };

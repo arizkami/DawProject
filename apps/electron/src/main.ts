@@ -830,7 +830,7 @@ app.on("second-instance", () => {
   win.focus();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Log GPU diagnostics so we can verify hardware acceleration is active.
   try {
     const gpuFeatures = app.getGPUFeatureStatus();
@@ -854,6 +854,11 @@ app.whenReady().then(() => {
   }
 
   registerMikoProtocol();
+
+  // Register SphereDirectAudioEngine IPC handlers and try to start the native engine.
+  const { registerSphereAudioHandlers } = await import("./native-audio/ipc-handlers.js");
+  registerSphereAudioHandlers(__dirname);
+
   createWindow();
 
   app.on("activate", () => {

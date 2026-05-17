@@ -125,6 +125,71 @@ export interface DawBridgeWindow {
   close(): Promise<void>;
 }
 
+// ── SphereDirectAudioEngine bridge ────────────────────────────────────────────
+
+export type DawBridgeSphereDeviceOpenConfig = {
+  inputDeviceId?:  string;
+  outputDeviceId?: string;
+  sampleRate?:     number;
+  bufferSize?:     number;
+};
+
+export type DawBridgeSphereTransportState = {
+  playing?:         boolean;
+  positionSeconds?: number;
+  loop?:            boolean;
+  loopStart?:       number;
+  loopEnd?:         number;
+};
+
+export type DawBridgeSphereAudioStatus = {
+  running:      boolean;
+  version:      string;
+  sampleRate:   number;
+  bufferSize:   number;
+  inputDevice:  string | null;
+  outputDevice: string | null;
+  cpuLoad:      number;
+  xrunCount:    number;
+};
+
+export type DawBridgeSphereDeviceInfo = {
+  id:           string;
+  name:         string;
+  channelCount: number;
+  sampleRates:  number[];
+  isDefault:    boolean;
+};
+
+export type DawBridgeSphereMeterSnapshot = {
+  tracks:    Record<string, { left: number; right: number }>;
+  master:    { left: number; right: number };
+  timestamp: number;
+};
+
+/**
+ * SphereDirectAudioEngine preload bridge.
+ * Present only in the Electron client.  Renderer code must check for its
+ * existence before calling any method.
+ */
+export interface DawBridgeSphereAudio {
+  getStatus():                                                               Promise<DawBridgeSphereAudioStatus>;
+  getVersion():                                                              Promise<string>;
+  listInputDevices():                                                        Promise<DawBridgeSphereDeviceInfo[]>;
+  listOutputDevices():                                                       Promise<DawBridgeSphereDeviceInfo[]>;
+  openDevice(config: DawBridgeSphereDeviceOpenConfig):                       Promise<void>;
+  closeDevice():                                                             Promise<void>;
+  start():                                                                   Promise<void>;
+  stop():                                                                    Promise<void>;
+  setTransportState(state: DawBridgeSphereTransportState):                   Promise<void>;
+  getTransportState():                                                       Promise<{ playing: boolean; positionSeconds: number }>;
+  updateTrackParam(trackId: string, paramId: string, value: unknown):        Promise<void>;
+  updateInsertParam(trackId: string, insertId: string, paramId: string, value: unknown): Promise<void>;
+  loadProject(snapshot: unknown):                                            Promise<void>;
+  updateClip(clipId: string, patch: unknown):                                Promise<void>;
+  getMeters():                                                               Promise<DawBridgeSphereMeterSnapshot>;
+}
+
 export interface DawElectronBridge {
   /** Legacy/back-compat surface preserved for existing renderer consumers. */
   platform: DawBridgePlatform;
@@ -137,6 +202,9 @@ export interface DawElectronBridge {
   dialog: DawBridgeDialog;
   window: DawBridgeWindow;
   sys: DawBridgeSys;
+
+  /** SphereDirectAudioEngine native backend. Present only in Electron client. */
+  sphereAudio: DawBridgeSphereAudio;
 }
 
 declare global {

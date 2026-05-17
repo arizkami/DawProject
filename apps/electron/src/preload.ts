@@ -16,6 +16,8 @@ import {
   type FolderImportAudioResult,
   type BrowseFolderResult,
   type GpuFeatureStatus,
+  type SphereDeviceOpenConfig,
+  type SphereTransportState,
 } from "./ipc/channels.js";
 
 const invoke = ipcRenderer.invoke.bind(ipcRenderer);
@@ -92,6 +94,30 @@ const sysBridge = Object.freeze({
     invoke(IpcChannels.SysGetGpuInfo),
 });
 
+/**
+ * sphereAudioBridge — safe IPC surface for SphereDirectAudioEngine.
+ * Only exposed in the Electron client; the renderer detects its presence via
+ * `window.dawElectron?.sphereAudio`.  All methods are async and handle
+ * main-process errors as rejected promises.
+ */
+const sphereAudioBridge = Object.freeze({
+  getStatus:          ()                                            => invoke(IpcChannels.SphereAudioGetStatus),
+  getVersion:         ()                                            => invoke(IpcChannels.SphereAudioGetVersion),
+  listInputDevices:   ()                                            => invoke(IpcChannels.SphereAudioListInputDevices),
+  listOutputDevices:  ()                                            => invoke(IpcChannels.SphereAudioListOutputDevices),
+  openDevice:         (config: SphereDeviceOpenConfig)              => invoke(IpcChannels.SphereAudioOpenDevice, config),
+  closeDevice:        ()                                            => invoke(IpcChannels.SphereAudioCloseDevice),
+  start:              ()                                            => invoke(IpcChannels.SphereAudioStart),
+  stop:               ()                                            => invoke(IpcChannels.SphereAudioStop),
+  setTransportState:  (state: SphereTransportState)                 => invoke(IpcChannels.SphereAudioSetTransport, state),
+  getTransportState:  ()                                            => invoke(IpcChannels.SphereAudioGetTransport),
+  updateTrackParam:   (trackId: string, paramId: string, value: unknown)                           => invoke(IpcChannels.SphereAudioUpdateTrackParam, trackId, paramId, value),
+  updateInsertParam:  (trackId: string, insertId: string, paramId: string, value: unknown)         => invoke(IpcChannels.SphereAudioUpdateInsertParam, trackId, insertId, paramId, value),
+  loadProject:        (snapshot: unknown)                           => invoke(IpcChannels.SphereAudioLoadProject, snapshot),
+  updateClip:         (clipId: string, patch: unknown)              => invoke(IpcChannels.SphereAudioUpdateClip, clipId, patch),
+  getMeters:          ()                                            => invoke(IpcChannels.SphereAudioGetMeters),
+});
+
 const dawElectron = Object.freeze({
   platform: process.platform,
   frameless: true,
@@ -106,6 +132,8 @@ const dawElectron = Object.freeze({
   windows: windowsBridge,
   waveformCache: waveformCacheBridge,
   sys: sysBridge,
+  /** SphereDirectAudioEngine native backend bridge. Presence indicates Electron client. */
+  sphereAudio: sphereAudioBridge,
 });
 
 contextBridge.exposeInMainWorld("dawElectron", dawElectron);

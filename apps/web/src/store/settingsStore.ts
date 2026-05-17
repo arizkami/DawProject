@@ -3,7 +3,7 @@ import { create } from "zustand";
 const STORAGE_KEY = "futureboard.appSettings.v1";
 
 export type StartupBehavior = "wizard" | "newProject" | "lastProject";
-export type PreferredEngine = "auto" | "wasm" | "webAudio";
+export type PreferredEngine = "auto" | "wasm" | "webAudio" | "native-sphere-direct";
 export type PreferredBufferSize = 64 | 128 | 256 | 512 | 1024;
 
 export type AppSettings = {
