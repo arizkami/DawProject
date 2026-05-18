@@ -4,6 +4,7 @@ import {
   dialog,
   ipcMain,
   Menu,
+  nativeImage,
   protocol,
   shell,
   type MenuItemConstructorOptions,
@@ -245,6 +246,47 @@ function windowIconPath(): string {
   return path.join(__dirname, "..", "icons", iconFile);
 }
 
+function assetsPath(...parts: string[]): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "assets", ...parts);
+  }
+  return path.join(__dirname, "..", "assets", ...parts);
+}
+
+function createSplashWindow(): BrowserWindow {
+  const imgPath = assetsPath("splash.png");
+  let w = 600;
+  let h = 340;
+  try {
+    const img = nativeImage.createFromPath(imgPath);
+    const size = img.getSize();
+    if (size.width > 0 && size.height > 0) {
+      // splash.png is authored as a 2x bitmap. BrowserWindow dimensions are
+      // device-independent pixels, so display it at 1x CSS/DPI size.
+      w = Math.round(size.width / 2);
+      h = Math.round(size.height / 2);
+    }
+  } catch {
+    // fall back to defaults
+  }
+
+  const splash = new BrowserWindow({
+    width: w,
+    height: h,
+    center: true,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: true,
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
+  });
+
+  void splash.loadFile(assetsPath("splash.html"));
+  return splash;
+}
+
 function sendCommandToFocusedWindow(commandId: string): void {
   BrowserWindow.getFocusedWindow()?.webContents.send("app-command", commandId);
 }
@@ -347,7 +389,7 @@ function installApplicationMenu(): void {
   ]));
 }
 
-function createWindow(): BrowserWindow {
+function createWindow(showOnReady = true): BrowserWindow {
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -386,9 +428,9 @@ function createWindow(): BrowserWindow {
     },
   });
 
-  // Show only after the first frame is ready — avoids the white flash and
-  // makes perceived startup feel instant.
-  win.once("ready-to-show", () => win.show());
+  if (showOnReady) {
+    win.once("ready-to-show", () => win.show());
+  }
 
   if (app.isPackaged) {
     void win.loadURL(PACKAGED_APP_URL);
@@ -1484,7 +1526,12 @@ app.whenReady().then(async () => {
 
   initAutoUpdater();
 
-  createWindow();
+  const splash = createSplashWindow();
+  const win = createWindow(false);
+  win.once("ready-to-show", () => {
+    splash.close();
+    win.show();
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

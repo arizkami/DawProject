@@ -10,15 +10,13 @@
     },
     "apps/electron": {
       "name": "futureboard-studio",
-      "version": "2026.5.17",
-      "dependencies": {
-        "electron-updater": "^6.8.3",
-      },
+      "version": "2026.5.18",
       "devDependencies": {
         "@types/node": "^25.8.0",
         "concurrently": "^9.0.0",
         "electron": "^42.1.0",
         "electron-builder": "^26.8.1",
+        "electron-updater": "^6.8.3",
         "rcedit": "^5.0.2",
         "typescript": "^6.0.3",
         "wait-on": "^9.0.10",

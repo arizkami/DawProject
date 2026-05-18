@@ -1,8 +1,25 @@
 import { app, dialog } from "electron";
-import { autoUpdater, type UpdateInfo } from "electron-updater";
+import { createRequire } from "node:module";
+import type { AppUpdater, UpdateInfo } from "electron-updater";
+
+function loadAutoUpdater(): AppUpdater | null {
+  try {
+    const require = createRequire(import.meta.url);
+    const updaterModule = require("electron-updater") as typeof import("electron-updater");
+    return updaterModule.autoUpdater;
+  } catch (err) {
+    console.warn(
+      "[AutoUpdater] electron-updater is unavailable:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return null;
+  }
+}
 
 export function initAutoUpdater(): void {
   if (!app.isPackaged) return;
+  const autoUpdater = loadAutoUpdater();
+  if (!autoUpdater) return;
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;

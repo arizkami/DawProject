@@ -1,26 +1,8 @@
 {
   "name": "futureboard-studio",
-  "private": true,
   "version": "2026.05.18",
-  "description": "Futureboard Studio",
   "author": "Arizkami",
-  "type": "module",
   "main": "dist/main.js",
-  "scripts": {
-    "build": "node scripts/sync-shared-menu.mjs && tsc -p .",
-    "dev": "concurrently -k -n tsc,electron -c blue,magenta \"tsc -p . --watch\" \"wait-on dist/main.js && electron .\"",
-    "start": "electron .",
-    "build:native:audio": "cd ../../frameworks/SphereDirectAudioEngine && cargo build --release --lib && node ../../apps/electron/scripts/copy-native-audio.mjs",
-    "build:native:audio:debug": "cd ../../frameworks/SphereDirectAudioEngine && cargo build --lib && node ../../apps/electron/scripts/copy-native-audio.mjs --debug",
-    "build:renderer": "bun run --cwd ../web build:electron",
-    "copy:renderer": "node scripts/copy-renderer.cjs",
-    "build:all": "bun run build:native:audio && bun run build:renderer && bun run build && bun run copy:renderer",
-    "pack": "bun run build:all && electron-builder --dir",
-    "dist": "bun run build:all && electron-builder --publish never",
-    "dist:win": "bun run build:all && electron-builder --win --publish never",
-    "dist:mac": "bun run build:all && electron-builder --mac --publish never",
-    "dist:linux": "bun run build:all && electron-builder --linux --publish never"
-  },
   "dependencies": {
     "electron-updater": "^6.8.3"
   },
@@ -64,6 +46,11 @@
       {
         "from": "icons",
         "to": "icons",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "assets",
+        "to": "assets",
         "filter": ["**/*"]
       },
       {
@@ -115,18 +102,26 @@
     },
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64"] },
-        { "target": "deb",      "arch": ["x64"] }
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
       ],
       "executableName": "futureboard-studio",
       "category": "AudioVideo;Audio;Music",
       "icon": "icons/app.png",
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "desktop": {
-        "Name": "Futureboard Studio",
-        "Comment": "Digital Audio Workstation",
-        "Categories": "AudioVideo;Audio;Music;",
-        "StartupWMClass": "futureboard-studio"
+        "entry": {
+          "Name": "Futureboard Studio",
+          "Comment": "Digital Audio Workstation",
+          "Categories": "AudioVideo;Audio;Music;",
+          "StartupWMClass": "futureboard-studio"
+        }
       }
     },
     "deb": {
@@ -144,5 +139,23 @@
         "libasound2"
       ]
     }
-  }
+  },
+  "description": "Futureboard Studio",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/sync-shared-menu.mjs && tsc -p .",
+    "dev": "concurrently -k -n tsc,electron -c blue,magenta \"tsc -p . --watch\" \"wait-on dist/main.js && electron .\"",
+    "start": "electron .",
+    "build:native:audio": "cd ../../frameworks/SphereDirectAudioEngine && cargo build --release --lib && node ../../apps/electron/scripts/copy-native-audio.mjs",
+    "build:native:audio:debug": "cd ../../frameworks/SphereDirectAudioEngine && cargo build --lib && node ../../apps/electron/scripts/copy-native-audio.mjs --debug",
+    "build:renderer": "bun run --cwd ../web build:electron",
+    "copy:renderer": "node scripts/copy-renderer.cjs",
+    "build:all": "bun run build:native:audio && bun run build:renderer && bun run build && bun run copy:renderer",
+    "pack": "bun run build:all && electron-builder --dir",
+    "dist": "bun run build:all && electron-builder --publish never",
+    "dist:win": "bun run build:all && electron-builder --win --publish never",
+    "dist:mac": "bun run build:all && electron-builder --mac --publish never",
+    "dist:linux": "bun run build:all && electron-builder --linux --publish never"
+  },
+  "type": "module"
 }
