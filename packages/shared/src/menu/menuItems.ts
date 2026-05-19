@@ -1325,6 +1325,16 @@ export const APP_MENUS: AppMenuGroup[] = [
             label: "Float",
             action: "panel:mixer-float",
           },
+          {
+            type: "separator",
+            id: "window.dock_mixer.sep_native",
+          },
+          {
+            id: "window.dock_mixer.native",
+            label: "Open in Native Window",
+            icon: "external-link",
+            action: "floatingwindow:mixer",
+          },
         ],
       },
       {

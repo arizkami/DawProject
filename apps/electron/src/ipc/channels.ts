@@ -79,6 +79,12 @@ export const IpcChannels = {
   SphereAudioStartRecording:     "daw:sphere:startRecording",
   SphereAudioStopRecording:      "daw:sphere:stopRecording",
   SphereAudioGetRecordingStatus: "daw:sphere:getRecordingStatus",
+
+  // Native floating window runtime (floatingwindow binary via FloatingWindowManager)
+  FloatingWindowOpen:  "daw:floatingwindow:open",
+  FloatingWindowClose: "daw:floatingwindow:close",
+  FloatingWindowFocus: "daw:floatingwindow:focus",
+  FloatingWindowMixerUpdate: "daw:floatingwindow:mixer:update",
 } as const;
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
@@ -208,6 +214,39 @@ export type GpuFeatureStatus = {
   gpuDescription: string | null;
   electronVersion: string;
   chromeVersion: string;
+};
+
+export type FloatingWindowKind = "Mixer" | "Midi" | "Analyzer" | "PluginEditorPlaceholder";
+
+export type FloatingWindowOpenRequest = {
+  id: string;
+  kind: FloatingWindowKind;
+  title: string;
+  alwaysOnTop?: boolean;
+};
+
+export type FloatingWindowMixerTrack = {
+  id: string;
+  name: string;
+  color: string;
+  volume: number;
+  pan: number;
+  mute: boolean;
+  solo: boolean;
+  armed: boolean;
+  meterL?: number;
+  meterR?: number;
+};
+
+export type FloatingWindowMixerMaster = {
+  volume: number;
+  meterL?: number;
+  meterR?: number;
+};
+
+export type FloatingWindowMixerUpdateRequest = {
+  tracks: FloatingWindowMixerTrack[];
+  master: FloatingWindowMixerMaster;
 };
 
 export type ExternalWindowConfig = {

@@ -1,7 +1,7 @@
 import {
   ChevronDown, Minus, Plus, SlidersHorizontal, X,
   Activity, Waves, Sparkles, AudioLines, Gauge, Boxes, Plug,
-  Send, FolderPlus, CornerDownLeft, GitMerge,
+  Send, FolderPlus, CornerDownLeft, GitMerge, ExternalLink,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -20,18 +20,51 @@ import { activeAudioEngine } from "../engine/activeAudioEngine";
 import { Knob } from "./ui/Knob";
 import { MixerFader } from "./ui/MixerFader";
 import { useVuStereoLevels } from "../hooks/useVuLevel";
+import { meterStore } from "../store/meterStore";
 import { effectiveTrackMeterMode } from "../utils/meterMode";
 import type { DawFile, DawProject, DawTrack, InsertDevice, TrackPreviewMode, TrackSend } from "../types/daw";
 import { buildTrackContextMenu } from "../menu/trackContextMenu";
 import { getSendTargets } from "../utils/routingHelpers";
 import { AddTrackSendCommand, RemoveTrackSendCommand } from "../commands";
 import { BUILT_IN_PLUGINS, type BuiltInPlugin } from "../plugins/registry";
+import { showToast } from "./ui/Toast";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 let lastInsertAdd:
   | { trackId: string; pluginId: string; at: number }
   | null = null;
+
+function syncNativeMixer(project: DawProject, masterVolume: number) {
+  const bridge = window.dawElectron?.floatingWindow;
+  if (!bridge?.updateMixer) return;
+
+  const meters = meterStore.getState();
+  void bridge.updateMixer({
+    tracks: project.tracks
+      .filter((track) => track.type !== "master")
+      .map((track) => {
+        const meter = meters.tracks[track.id];
+        return {
+          id: track.id,
+          name: track.name,
+          color: track.color,
+          volume: track.volume,
+          pan: track.pan,
+          mute: track.muted,
+          solo: track.solo,
+          armed: track.armed,
+          meterL: meter?.peakL ?? 0,
+          meterR: meter?.peakR ?? 0,
+        };
+      }),
+    master: {
+      volume: masterVolume,
+      meterL: meters.master.peakL,
+      meterR: meters.master.peakR,
+    },
+  });
+}
 
 function sendToDb(v: number) {
   if (v <= 0.001) return "-inf";
@@ -641,6 +674,10 @@ export function MixerPanel({ height, embedded = false }: { height?: number; embe
     return () => ro.disconnect();
   }, []);
 
+  useEffect(() => {
+    syncNativeMixer(project, masterVolume);
+  }, [project, masterVolume]);
+
   // height resize — useRef so drag state survives re-renders
   const hDragRef = useRef<{ startY: number; startH: number } | null>(null);
   const onHeightDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -743,6 +780,32 @@ export function MixerPanel({ height, embedded = false }: { height?: number; embe
               <Plus size={9} />
             </button>
           </div>
+        )}
+
+        {window.dawElectron?.floatingWindow && (
+          <button
+            onClick={() => {
+              void (async () => {
+                const opened = await window.dawElectron?.floatingWindow?.open({
+                  id: "mixer",
+                  kind: "Mixer",
+                  title: "Mixer - Futureboard",
+                  alwaysOnTop: false,
+                });
+                if (!opened) {
+                  setPanelLayout("mixer", { dock: "float" });
+                  showToast("Native mixer unavailable; opened internal mixer.", true);
+                  return;
+                }
+                syncNativeMixer(project, masterVolume);
+              })();
+            }}
+            className="flex h-5 items-center gap-1 rounded border border-white/[0.07] bg-white/[0.03] px-1.5 text-[9px] font-semibold text-daw-faint transition-colors hover:border-daw-accent/40 hover:bg-daw-accent/10 hover:text-daw-accent"
+            title="Open Mixer in native window"
+          >
+            <ExternalLink size={9} />
+            Native
+          </button>
         )}
 
         {!embedded && (

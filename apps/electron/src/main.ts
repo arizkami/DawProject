@@ -32,9 +32,12 @@ import {
   type FolderImportAudioResult,
   type BrowseFolderResult,
   type GpuFeatureStatus,
+  type FloatingWindowOpenRequest,
+  type FloatingWindowMixerUpdateRequest,
 } from "./ipc/channels.js";
 import { APP_MENUS, type AppMenuGroup, type AppMenuItem } from "./generated/menuItems.js";
 import { initAutoUpdater } from "./updater.js";
+import { getFloatingWindowManager } from "./floating-window-manager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -1500,6 +1503,32 @@ function registerIpcHandlers(): void {
       }
     },
   );
+
+  // ── Native Floating Window runtime ────────────────────────────────────────
+  ipcMain.handle(IpcChannels.FloatingWindowOpen, (_event, req: unknown): boolean => {
+    const r = req as FloatingWindowOpenRequest;
+    if (!r?.id || !r?.kind) return false;
+    const mgr = getFloatingWindowManager();
+    if (!mgr.running && !mgr.start()) return false;
+    mgr.openWindow({ id: r.id, kind: r.kind, title: r.title ?? r.kind, alwaysOnTop: r.alwaysOnTop ?? false });
+    return true;
+  });
+
+  ipcMain.handle(IpcChannels.FloatingWindowClose, (_event, id: unknown): void => {
+    if (typeof id !== "string") return;
+    getFloatingWindowManager().closeWindow(id);
+  });
+
+  ipcMain.handle(IpcChannels.FloatingWindowFocus, (_event, id: unknown): void => {
+    if (typeof id !== "string") return;
+    getFloatingWindowManager().focusWindow(id);
+  });
+
+  ipcMain.handle(IpcChannels.FloatingWindowMixerUpdate, (_event, req: unknown): void => {
+    const r = req as FloatingWindowMixerUpdateRequest;
+    if (!Array.isArray(r?.tracks) || !r?.master) return;
+    getFloatingWindowManager().pushMixerUpdate(r.tracks, r.master);
+  });
 }
 
 // Register IPC handlers eagerly so they are guaranteed to be live before the

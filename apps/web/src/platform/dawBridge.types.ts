@@ -309,6 +309,33 @@ export interface DawBridgeSphereAudio {
   getDauxStatus():                                                           Promise<DawBridgeDauxStatus>;
 }
 
+export type FloatingWindowKind = "Mixer" | "Midi" | "Analyzer" | "PluginEditorPlaceholder";
+
+export interface DawBridgeFloatingWindow {
+  open(req: { id: string; kind: FloatingWindowKind; title: string; alwaysOnTop?: boolean }): Promise<boolean>;
+  close(id: string): Promise<void>;
+  focus(id: string): Promise<void>;
+  updateMixer(req: {
+    tracks: Array<{
+      id: string;
+      name: string;
+      color: string;
+      volume: number;
+      pan: number;
+      mute: boolean;
+      solo: boolean;
+      armed: boolean;
+      meterL?: number;
+      meterR?: number;
+    }>;
+    master: {
+      volume: number;
+      meterL?: number;
+      meterR?: number;
+    };
+  }): Promise<void>;
+}
+
 export interface FutureboardCommandBridge {
   onCommand(callback: (commandId: string) => void): () => void;
 }
@@ -332,6 +359,8 @@ export interface DawElectronBridge {
 
   /** SphereDirectAudioEngine native backend. Present only in Electron client. */
   sphereAudio: DawBridgeSphereAudio;
+  /** Native floating window runtime (Rust/egui binary). Present only in Electron client. */
+  floatingWindow?: DawBridgeFloatingWindow;
 }
 
 declare global {

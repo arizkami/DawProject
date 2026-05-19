@@ -60,7 +60,7 @@
       {
         "from": "resources",
         "to": ".",
-        "filter": ["*.node", "*.dll", "*.dylib", "*.so"]
+        "filter": ["*.node", "*.dll", "*.dylib", "*.so", "*.exe"]
       }
     ],
     "fileAssociations": [
@@ -153,9 +153,11 @@
     "start": "electron .",
     "build:native:audio": "cd ../../frameworks/SphereDirectAudioEngine && cargo build --release --lib && node ../../apps/electron/scripts/copy-native-audio.mjs",
     "build:native:audio:debug": "cd ../../frameworks/SphereDirectAudioEngine && cargo build --lib && node ../../apps/electron/scripts/copy-native-audio.mjs --debug",
+    "build:native:floatingwindow": "node scripts/copy-floatingwindow.mjs",
+    "build:native:floatingwindow:debug": "node scripts/copy-floatingwindow.mjs --debug",
     "build:renderer": "bun run --cwd ../web build:electron",
     "copy:renderer": "node scripts/copy-renderer.cjs",
-    "build:all": "bun run build:native:audio && bun run build:renderer && bun run build && bun run copy:renderer",
+    "build:all": "bun run build:native:audio && bun run build:native:floatingwindow && bun run build:renderer && bun run build && bun run copy:renderer",
     "pack": "bun run build:all && electron-builder --dir",
     "dist": "bun run build:all && electron-builder --publish never",
     "dist:win": "bun run build:all && electron-builder --win --publish never",
