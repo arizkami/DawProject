@@ -833,6 +833,27 @@ function AppearanceTab({ draft, setDraft }: { draft: AppSettings; setDraft: (p: 
   const isElectron = platform.kind === "electron";
   const storedGraphicMode = useSettingsStore((s) => s.graphicRenderingMode);
   const graphicModeDirty = draft.graphicRenderingMode !== storedGraphicMode;
+  const [gpuName, setGpuName] = useState<string>("Detecting GPU...");
+  const [gpuBackend, setGpuBackend] = useState<string>("");
+
+  useEffect(() => {
+    if (!isElectron) return;
+    let cancelled = false;
+    window.dawElectron?.sys.getGpuInfo()
+      .then((info) => {
+        if (cancelled) return;
+        setGpuName(info.gpuDescription ?? "Unknown GPU");
+        const webgl = info.features.webgl ?? "unknown";
+        const raster = info.features.rasterization ?? "unknown";
+        setGpuBackend(`WebGL ${webgl} / Raster ${raster}`);
+      })
+      .catch(() => {
+        if (!cancelled) setGpuName("Unknown GPU");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isElectron]);
 
   return (
     <div className="flex flex-col">
@@ -850,15 +871,24 @@ function AppearanceTab({ draft, setDraft }: { draft: AppSettings; setDraft: (p: 
         <>
           <SectionHeader>Graphics</SectionHeader>
           <SettingsRow
+            label="GPU Device"
+            description={gpuBackend || "Renderer device currently reported by Electron/Chromium."}
+          >
+            <div className="min-w-0 text-right text-[11px] font-medium text-daw-text">
+              <span className="block truncate" title={gpuName}>{gpuName}</span>
+            </div>
+          </SettingsRow>
+          <SettingsRow
             label="Graphic Rendering Mode"
-            description="GPU Rendering uses hardware acceleration for canvas and UI. Software Rendering is safer on machines with unstable GPU drivers."
+            description="Auto uses Electron defaults. Force GPU requests ANGLE D3D12 on Windows and bypasses conservative GPU blocking. Software Rendering is safest for unstable drivers."
           >
             <div className="flex flex-col items-end gap-1.5">
               <SettingsSelect<GraphicRenderingMode>
                 value={draft.graphicRenderingMode}
                 onChange={(v) => setDraft({ graphicRenderingMode: v })}
                 options={[
-                  { value: "auto",     label: "GPU Rendering" },
+                  { value: "auto",     label: "GPU Rendering (Auto)" },
+                  { value: "force",    label: "Force GPU (ANGLE D3D12)" },
                   { value: "software", label: "Software Rendering" },
                 ]}
               />

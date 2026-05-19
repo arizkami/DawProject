@@ -92,6 +92,7 @@ function readPersistedGpuMode(): GpuMode | null {
   try {
     const raw = readFileSync(electronSettingsFilePath(), "utf-8");
     const parsed = JSON.parse(raw) as Partial<ElectronPersistedSettings>;
+    if (parsed.graphicRenderingMode === "force") return "force";
     if (parsed.graphicRenderingMode === "auto") return "auto";
     if (parsed.graphicRenderingMode === "software") return "software";
   } catch {
@@ -116,15 +117,22 @@ if (GPU_MODE === "software") {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("disable-gpu");
   console.log("[GPU] Software rendering mode (FUTUREBOARD_GPU_MODE=software)");
-} else if (GPU_MODE === "force") {
+} else {
+  if (isWin) {
+    app.commandLine.appendSwitch("use-angle", "d3d12");
+    console.log("[GPU] Windows ANGLE backend requested: D3D12");
+  }
+}
+
+if (GPU_MODE === "force") {
   app.commandLine.appendSwitch("ignore-gpu-blocklist");
   app.commandLine.appendSwitch("enable-gpu-rasterization");
   app.commandLine.appendSwitch("enable-zero-copy");
   app.commandLine.appendSwitch("enable-accelerated-2d-canvas");
   app.commandLine.appendSwitch("enable-webgl");
   app.disableDomainBlockingFor3DAPIs();
-  console.log("[GPU] Force hardware mode (FUTUREBOARD_GPU_MODE=force)");
-} else {
+  console.log("[GPU] Force hardware mode (FUTUREBOARD_GPU_MODE=force; ANGLE=D3D12 on Windows)");
+} else if (GPU_MODE === "auto") {
   console.log("[GPU] Auto mode — GPU acceleration left to Electron defaults");
 }
 
@@ -1553,10 +1561,34 @@ function registerIpcHandlers(): void {
       const parsed = JSON.parse(raw) as Partial<ElectronPersistedSettings>;
       return {
         graphicRenderingMode:
-          parsed.graphicRenderingMode === "software" ? "software" : "auto",
+          parsed.graphicRenderingMode === "force"
+            ? "force"
+            : parsed.graphicRenderingMode === "software"
+              ? "software"
+              : "auto",
       };
     } catch {
       return { graphicRenderingMode: "auto" };
+    }
+  }
+
+  async function getPrimaryGpuDescription(): Promise<string | null> {
+    try {
+      const info = await app.getGPUInfo("basic");
+      const gpuInfo = info as Record<string, unknown>;
+      const gpuList = Array.isArray(gpuInfo.gpuDevice)
+        ? (gpuInfo.gpuDevice as Array<{ description?: string; vendorId?: number; deviceId?: number }>)
+        : [];
+      const primary = gpuList.find((gpu) => typeof gpu.description === "string" && gpu.description.trim().length > 0)
+        ?? gpuList[0];
+      if (!primary) return null;
+      const description = primary.description?.trim();
+      if (description) return description;
+      const vendor = primary.vendorId?.toString(16) ?? "?";
+      const device = primary.deviceId?.toString(16) ?? "?";
+      return `GPU vendor=${vendor} device=${device}`;
+    } catch {
+      return null;
     }
   }
 
@@ -1580,16 +1612,19 @@ function registerIpcHandlers(): void {
       const s = settings as Partial<ElectronPersistedSettings>;
       await writeElectronSettings({
         graphicRenderingMode:
-          s.graphicRenderingMode === "software" ? "software" : "auto",
+          s.graphicRenderingMode === "force"
+            ? "force"
+            : s.graphicRenderingMode === "software"
+              ? "software"
+              : "auto",
       });
     },
   );
 
   ipcMain.handle(
     IpcChannels.SysGetGpuInfo,
-    (): GpuFeatureStatus => {
+    async (): Promise<GpuFeatureStatus> => {
       let features: Record<string, string> = {};
-      let gpuDescription: string | null = null;
       try {
         features = app.getGPUFeatureStatus() as unknown as Record<string, string>;
       } catch { /* ignore */ }
@@ -1597,7 +1632,7 @@ function registerIpcHandlers(): void {
         hardwareAccelerationEnabled: app.isHardwareAccelerationEnabled(),
         gpuMode: GPU_MODE,
         features,
-        gpuDescription,
+        gpuDescription: await getPrimaryGpuDescription(),
         electronVersion: process.versions.electron ?? "unknown",
         chromeVersion: process.versions.chrome ?? "unknown",
       };

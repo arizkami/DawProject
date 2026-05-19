@@ -228,7 +228,7 @@ export type GpuFeatureStatus = {
 /** Settings persisted to disk (userData/futureboard-settings.json).
  *  Read synchronously at startup for pre-ready configuration (GPU mode). */
 export type ElectronPersistedSettings = {
-  graphicRenderingMode: "auto" | "software";
+  graphicRenderingMode: "auto" | "force" | "software";
 };
 
 export type FloatingWindowKind = "Mixer" | "Midi" | "Analyzer" | "PluginEditorPlaceholder";

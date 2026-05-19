@@ -162,7 +162,7 @@ export type DawBridgeGpuFeatureStatus = {
 
 /** Settings persisted to futureboard-settings.json (Electron only). */
 export type DawBridgeElectronSettings = {
-  graphicRenderingMode: "auto" | "software";
+  graphicRenderingMode: "auto" | "force" | "software";
 };
 
 export interface DawBridgeSys {

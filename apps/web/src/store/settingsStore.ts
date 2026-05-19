@@ -23,7 +23,7 @@ export type ExtraFolderSetting = {
   addedAt: number;
 };
 
-export type GraphicRenderingMode = "auto" | "software";
+export type GraphicRenderingMode = "auto" | "force" | "software";
 
 export type AppSettings = {
   startupBehavior: StartupBehavior;
