@@ -62,10 +62,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Initialize VST3 SDK submodules without docs
+      - name: Initialize audio plugin SDK submodules without docs
         run: |
-          git submodule sync -- external/vst3sdk
-          git submodule update --init --force --checkout -- external/vst3sdk
+          git submodule sync -- external/vst3sdk external/clap external/clap-helpers
+          git submodule update --init --force --checkout -- external/vst3sdk external/clap external/clap-helpers
           git -C external/vst3sdk submodule update --init --force --checkout -- base cmake pluginterfaces public.sdk tutorials vstgui4
 
       - name: Setup Bun
@@ -77,7 +77,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock', 'extentions/template/bun.lock') }}
           restore-keys: |
             bun-${{ runner.os }}-
 
@@ -102,9 +102,11 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             frameworks/SphereWebAudioCore/target
+            frameworks/SphereAudioPlugins/target
             frameworks/SphereDirectAudioEngine/target
             frameworks/SpherePluginHost/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('frameworks/SphereWebAudioCore/Cargo.lock', 'frameworks/SphereDirectAudioEngine/Cargo.lock', 'frameworks/SpherePluginHost/Cargo.lock') }}
+            extentions/template/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('frameworks/SphereWebAudioCore/Cargo.lock', 'frameworks/SphereAudioPlugins/Cargo.lock', 'frameworks/SphereDirectAudioEngine/Cargo.lock', 'frameworks/SpherePluginHost/Cargo.lock', 'extentions/template/Cargo.lock') }}
           restore-keys: |
             cargo-${{ runner.os }}-
 
@@ -112,7 +114,14 @@ jobs:
         run: cargo install wasm-pack --locked
 
       - name: Build WASM (SphereWebAudioCore)
-        run: wasm-pack build frameworks/SphereWebAudioCore --target web --release --out-dir  ../../apps/web/src/engine/wasm-pkg
+        run: bun run --cwd apps/web build:audio:wasm
+
+      - name: Check audio plugin framework
+        run: |
+          cargo check --manifest-path frameworks/SphereAudioPlugins/Cargo.toml
+          cargo check --manifest-path extentions/template/Cargo.toml
+          bun install --cwd extentions/template
+          bun run --cwd extentions/template typecheck
 
       - name: Generate .icns app icon (macOS)
         if: matrix.os == 'macos-latest'
