@@ -29,6 +29,7 @@ mod graph;
 pub mod recording;
 mod runtime;
 pub mod types;
+mod vst3_processor;
 
 use std::sync::Arc;
 

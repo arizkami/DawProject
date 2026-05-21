@@ -378,8 +378,15 @@ export function registerSphereAudioHandlers(_appDir: string): void {
         ? s.clips.filter((c: { mediaPath?: string }) => c.mediaPath).length
         : "?";
       const missingPath = Array.isArray(s?.clips) ? s.clips.length - Number(withPath) : "?";
+      const nativeInsertCount = Array.isArray(s?.tracks)
+        ? s.tracks.reduce((count: number, track: { inserts?: Array<{ type?: string }> }) => (
+            count + (Array.isArray(track.inserts)
+              ? track.inserts.filter((insert) => insert.type === "native-plugin").length
+              : 0)
+          ), 0)
+        : "?";
       console.log(
-        `[SphereAudio IPC] loadProject("${s?.projectId ?? "?"}") — ${trackCount} tracks, ${clipCount} clips (${withPath} with paths, ${missingPath} missing paths)`,
+        `[SphereAudio IPC] loadProject("${s?.projectId ?? "?"}") — ${trackCount} tracks, ${clipCount} clips (${withPath} with paths, ${missingPath} missing paths), native inserts=${nativeInsertCount}`,
       );
       svc.loadProject(resolvedSnapshot);
     },

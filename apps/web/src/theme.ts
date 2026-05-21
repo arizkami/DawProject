@@ -24,35 +24,74 @@ export const BROWSER_WIDTH = 272;
 export const INSPECTOR_WIDTH = 292;
 export const MIXER_HEIGHT = 240;
 
+export const semanticColors = {
+  surface: {
+    base: "#171B22",
+    sunken: "#11151B",
+    panel: "#202631",
+    raised: "#2A3240",
+    hover: "#313A49",
+    active: "#394456",
+    overlay: "rgba(0,0,0,0.22)",
+    subtle: "rgba(255,255,255,0.03)",
+    selected: "rgba(255,255,255,0.038)",
+  },
+  border: {
+    subtle: "rgba(255,255,255,0.075)",
+    muted: "rgba(255,255,255,0.055)",
+    strong: "#536173",
+    focus: "rgba(95,206,208,0.55)",
+  },
+  text: {
+    primary: "#F1F5F9",
+    secondary: "#D2DBE6",
+    muted: "#9AA7B8",
+    faint: "#6B7888",
+    disabled: "rgba(255,255,255,0.3)",
+  },
+  accent: {
+    primary: "#5FCED0",
+    hover: "#8AE9EB",
+    soft: "rgba(95,206,208,0.18)",
+    border: "rgba(95,206,208,0.48)",
+  },
+  status: {
+    success: "#85E0A3",
+    warning: "#F4CF7A",
+    error: "#F4877F",
+    info: "#7BC4F0",
+  },
+} as const;
+
 export const C = {
   // Core surfaces - lighter dark, still professional
-  bg: "#171B22",
-  sunken: "#11151B",
-  surface: "#202631",
-  surfaceHigh: "#2A3240",
-  surfaceHover: "#313A49",
-  surfaceActive: "#394456",
+  bg: semanticColors.surface.base,
+  sunken: semanticColors.surface.sunken,
+  surface: semanticColors.surface.panel,
+  surfaceHigh: semanticColors.surface.raised,
+  surfaceHover: semanticColors.surface.hover,
+  surfaceActive: semanticColors.surface.active,
 
   // Borders
   border: "#3A4554",
-  borderSoft: "rgba(255,255,255,0.075)",
-  borderHard: "#536173",
+  borderSoft: semanticColors.border.subtle,
+  borderHard: semanticColors.border.strong,
 
   // Text
-  faint: "#6B7888",
-  dim: "#9AA7B8",
-  text: "#F1F5F9",
-  textSoft: "#D2DBE6",
+  faint: semanticColors.text.faint,
+  dim: semanticColors.text.muted,
+  text: semanticColors.text.primary,
+  textSoft: semanticColors.text.secondary,
 
   // Main identity
-  accent: "#5FCED0",
-  accentSoft: "rgba(95,206,208,0.18)",
-  accentHard: "#8AE9EB",
+  accent: semanticColors.accent.primary,
+  accentSoft: semanticColors.accent.soft,
+  accentHard: semanticColors.accent.hover,
 
   // Status
-  green: "#85E0A3",
-  red: "#F4877F",
-  yellow: "#F4CF7A",
+  green: semanticColors.status.success,
+  red: semanticColors.status.error,
+  yellow: semanticColors.status.warning,
   orange: "#EFA66D",
   violet: "#B7ABFF",
   blue: "#7BC4F0",

@@ -104,6 +104,7 @@ interface NativeDebugInfo {
   positionSeconds: number;
   hasSolo:        boolean;
   clipSummaries:  string[];
+  insertSummaries: string[];
 }
 
 interface NativeDauxBackendInfo {
@@ -544,7 +545,7 @@ export class SphereAudioNative {
     if (!this._engine) {
       return {
         projectId: null, loadedTracks: 0, loadedClips: 0, readyClips: 0,
-        isPlaying: false, positionSeconds: 0, hasSolo: false, clipSummaries: [],
+        isPlaying: false, positionSeconds: 0, hasSolo: false, clipSummaries: [], insertSummaries: [],
       };
     }
     return this._engine.getDebugInfo();

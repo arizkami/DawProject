@@ -167,6 +167,8 @@ export type AudioPluginRegistryEntry = {
   vendor: string;
   format: "VST3" | "CLAP" | (string & {});
   category: string;
+  rawCategory?: string;
+  subCategories?: string;
   kind: AudioPluginKind;
   path: string;
   classId?: string;
@@ -225,6 +227,9 @@ export type PluginEditorWindowOpenOptions = {
   subtitle?: string;
   width?: number;
   height?: number;
+  pluginPath?: string;
+  classId?: string;
+  format?: string;
 };
 
 export interface PluginHostAdapter {
@@ -237,6 +242,8 @@ export interface PluginHostAdapter {
   openEditorWindow(options: PluginEditorWindowOpenOptions): Promise<number | null>;
   openEditorForPath(pluginPath: string): Promise<number | null>;
   closeEditorWindow(handle: number): Promise<void>;
+  focusEditorWindow?(handle: number): Promise<void>;
+  resizeEditorWindow?(handle: number, width: number, height: number): Promise<void>;
 }
 
 export interface WindowAdapter {

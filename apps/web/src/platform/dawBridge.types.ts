@@ -181,6 +181,8 @@ export type DawBridgeAudioPluginRegistryEntry = {
   vendor: string;
   format: "VST3" | "CLAP" | (string & {});
   category: string;
+  rawCategory?: string;
+  subCategories?: string;
   kind: DawBridgeAudioPluginKind;
   path: string;
   classId?: string;
@@ -239,6 +241,9 @@ export type DawBridgePluginEditorWindowOpenOptions = {
   subtitle?: string;
   width?: number;
   height?: number;
+  pluginPath?: string;
+  classId?: string;
+  format?: string;
 };
 
 export interface DawBridgePluginHost {
@@ -250,6 +255,8 @@ export interface DawBridgePluginHost {
   openEditorWindow(options: DawBridgePluginEditorWindowOpenOptions): Promise<number | null>;
   openEditorForPath(pluginPath: string): Promise<number | null>;
   closeEditorWindow(handle: number): Promise<void>;
+  focusEditorWindow?(handle: number): Promise<void>;
+  resizeEditorWindow?(handle: number, width: number, height: number): Promise<void>;
 }
 
 export interface DawBridgePeakChunk {
@@ -350,6 +357,7 @@ export type DawBridgeSphereDebugInfo = {
   positionSeconds: number;
   hasSolo:         boolean;
   clipSummaries:   string[];
+  insertSummaries: string[];
 };
 
 // ── DAUx backend selection types ──────────────────────────────────────────────

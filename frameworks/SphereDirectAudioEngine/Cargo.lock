@@ -845,6 +845,7 @@ dependencies = [
 name = "sphere-direct-audio-engine"
 version = "0.1.0"
 dependencies = [
+ "cc",
  "cpal",
  "crossbeam-channel",
  "napi",

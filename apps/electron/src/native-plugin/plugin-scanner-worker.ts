@@ -11,6 +11,8 @@ type NativePluginInfo = {
   name?: string;
   vendor?: string;
   category?: string;
+  subCategories?: string;
+  sub_categories?: string;
   format?: string;
   path?: string;
   classId?: string | null;

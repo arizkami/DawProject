@@ -21,7 +21,14 @@ SPHERE_PLUGIN_HOST_API unsigned long long sphere_plugin_editor_open_window(
     const char* subtitle,
     int width,
     int height);
+SPHERE_PLUGIN_HOST_API unsigned long long sphere_plugin_editor_get_attach_handle(unsigned long long handle);
+SPHERE_PLUGIN_HOST_API int sphere_plugin_editor_attach_vst3_view(
+    unsigned long long handle,
+    const char* plugin_path,
+    const char* class_id);
 SPHERE_PLUGIN_HOST_API void sphere_plugin_editor_close_window(unsigned long long handle);
+SPHERE_PLUGIN_HOST_API void sphere_plugin_editor_focus_window(unsigned long long handle);
+SPHERE_PLUGIN_HOST_API void sphere_plugin_editor_resize_window(unsigned long long handle, int width, int height);
 SPHERE_PLUGIN_HOST_API void sphere_plugin_host_free_string(SpherePluginHostString value);
 
 }

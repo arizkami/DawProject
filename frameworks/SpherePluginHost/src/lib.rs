@@ -6,8 +6,9 @@ mod scanner;
 mod types;
 
 pub use editor_window::{
-    close_plugin_editor_window, open_plugin_editor_for_path, open_plugin_editor_window,
-    PluginEditorWindowOptions,
+    attach_vst3_editor_view, close_plugin_editor_window, focus_plugin_editor_window,
+    get_plugin_editor_attach_handle, open_plugin_editor_for_path, open_plugin_editor_window,
+    resize_plugin_editor_window, PluginEditorWindowOptions,
 };
 use napi_derive::napi;
 use scanner::{scan_audio_plugin_paths, scan_clap_paths, scan_vst3_paths};

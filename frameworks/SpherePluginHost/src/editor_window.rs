@@ -11,7 +11,15 @@ extern "C" {
         width: c_int,
         height: c_int,
     ) -> c_ulonglong;
+    fn sphere_plugin_editor_get_attach_handle(handle: c_ulonglong) -> c_ulonglong;
+    fn sphere_plugin_editor_attach_vst3_view(
+        handle: c_ulonglong,
+        plugin_path: *const c_char,
+        class_id: *const c_char,
+    ) -> c_int;
     fn sphere_plugin_editor_close_window(handle: c_ulonglong);
+    fn sphere_plugin_editor_focus_window(handle: c_ulonglong);
+    fn sphere_plugin_editor_resize_window(handle: c_ulonglong, width: c_int, height: c_int);
 }
 
 #[napi(object)]
@@ -21,6 +29,9 @@ pub struct PluginEditorWindowOptions {
     pub subtitle: Option<String>,
     pub width: Option<u32>,
     pub height: Option<u32>,
+    pub plugin_path: Option<String>,
+    pub class_id: Option<String>,
+    pub format: Option<String>,
 }
 
 #[napi]
@@ -49,6 +60,16 @@ pub fn open_plugin_editor_window(options: PluginEditorWindowOptions) -> napi::Re
             "Plugin editor window failed to open",
         ));
     }
+    if options
+        .format
+        .as_deref()
+        .map(|format| format.eq_ignore_ascii_case("VST3"))
+        .unwrap_or(false)
+    {
+        if let (Some(plugin_path), Some(class_id)) = (options.plugin_path, options.class_id) {
+            let _ = attach_vst3_editor_view(handle as f64, plugin_path, class_id);
+        }
+    }
     Ok(handle as f64)
 }
 
@@ -67,13 +88,56 @@ pub fn open_plugin_editor_for_path(plugin_path: String) -> napi::Result<f64> {
     let subtitle = plugin
         .map(|plugin| format!("{} • {} • {}", plugin.format, plugin.vendor, plugin_path))
         .unwrap_or_else(|| format!("Native plugin editor • {plugin_path}"));
-    open_plugin_editor_window(PluginEditorWindowOptions {
+    let handle = open_plugin_editor_window(PluginEditorWindowOptions {
         window_id: format!("plugin-editor:{}", stable_id(&plugin_path)),
         title,
         subtitle: Some(subtitle),
         width: Some(820),
         height: Some(560),
-    })
+        plugin_path: None,
+        class_id: None,
+        format: None,
+    })?;
+    if let Some(plugin) = plugin {
+        if plugin.format == "VST3" {
+            if let Some(class_id) = plugin.class_id.as_deref() {
+                let _ = attach_vst3_editor_view(handle, plugin_path, class_id.to_string());
+            }
+        }
+    }
+    Ok(handle)
+}
+
+#[napi]
+pub fn get_plugin_editor_attach_handle(handle: f64) -> napi::Result<f64> {
+    if handle <= 0.0 {
+        return Ok(0.0);
+    }
+    let attach = unsafe { sphere_plugin_editor_get_attach_handle(handle as c_ulonglong) };
+    Ok(attach as f64)
+}
+
+#[napi]
+pub fn attach_vst3_editor_view(
+    handle: f64,
+    plugin_path: String,
+    class_id: String,
+) -> napi::Result<bool> {
+    if handle <= 0.0 {
+        return Ok(false);
+    }
+    let plugin_path =
+        CString::new(plugin_path).map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    let class_id =
+        CString::new(class_id).map_err(|error| napi::Error::from_reason(error.to_string()))?;
+    let ok = unsafe {
+        sphere_plugin_editor_attach_vst3_view(
+            handle as c_ulonglong,
+            plugin_path.as_ptr(),
+            class_id.as_ptr(),
+        )
+    };
+    Ok(ok != 0)
 }
 
 #[napi]
@@ -82,6 +146,26 @@ pub fn close_plugin_editor_window(handle: f64) -> napi::Result<()> {
         return Ok(());
     }
     unsafe { sphere_plugin_editor_close_window(handle as c_ulonglong) };
+    Ok(())
+}
+
+#[napi]
+pub fn focus_plugin_editor_window(handle: f64) -> napi::Result<()> {
+    if handle <= 0.0 {
+        return Ok(());
+    }
+    unsafe { sphere_plugin_editor_focus_window(handle as c_ulonglong) };
+    Ok(())
+}
+
+#[napi]
+pub fn resize_plugin_editor_window(handle: f64, width: u32, height: u32) -> napi::Result<()> {
+    if handle <= 0.0 {
+        return Ok(());
+    }
+    unsafe {
+        sphere_plugin_editor_resize_window(handle as c_ulonglong, width as c_int, height as c_int)
+    };
     Ok(())
 }
 

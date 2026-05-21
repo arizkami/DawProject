@@ -1723,6 +1723,9 @@ function registerIpcHandlers(): void {
         subtitle?: unknown;
         width?: unknown;
         height?: unknown;
+        pluginPath?: unknown;
+        classId?: unknown;
+        format?: unknown;
       };
       if (!isValidString(value?.windowId) || !isValidString(value?.title)) return null;
       return pluginHostNative.openPluginEditorWindow({
@@ -1731,6 +1734,9 @@ function registerIpcHandlers(): void {
         subtitle: typeof value.subtitle === "string" ? value.subtitle : undefined,
         width: typeof value.width === "number" ? value.width : undefined,
         height: typeof value.height === "number" ? value.height : undefined,
+        pluginPath: isValidString(value.pluginPath) ? value.pluginPath : undefined,
+        classId: isValidString(value.classId) ? value.classId : undefined,
+        format: isValidString(value.format) ? value.format : undefined,
       });
     },
   );
@@ -1748,6 +1754,23 @@ function registerIpcHandlers(): void {
     async (_event, handle: unknown): Promise<void> => {
       if (typeof handle !== "number") return;
       pluginHostNative.closePluginEditorWindow(handle);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.PluginHostFocusEditorWindow,
+    async (_event, handle: unknown): Promise<void> => {
+      if (typeof handle !== "number") return;
+      pluginHostNative.focusPluginEditorWindow(handle);
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.PluginHostResizeEditorWindow,
+    async (_event, payload: unknown): Promise<void> => {
+      const value = payload as { handle?: unknown; width?: unknown; height?: unknown };
+      if (typeof value?.handle !== "number" || typeof value?.width !== "number" || typeof value?.height !== "number") return;
+      pluginHostNative.resizePluginEditorWindow(value.handle, value.width, value.height);
     },
   );
 

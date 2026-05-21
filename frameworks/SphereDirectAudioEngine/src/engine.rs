@@ -649,6 +649,55 @@ impl EngineInner {
                 )
             })
             .collect();
+        let insert_summaries: Vec<String> = runtime
+            .tracks
+            .iter()
+            .flat_map(|track| {
+                track.inserts.iter().map(move |insert| {
+                    let format = insert
+                        .params
+                        .get("format")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("");
+                    let path = insert
+                        .params
+                        .get("path")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("");
+                    let vst3_ready = insert
+                        .vst3
+                        .as_ref()
+                        .map(|processor| processor.is_ready())
+                        .unwrap_or(false);
+                    let (process_count, input_peak, output_peak, diff_peak) = insert
+                        .vst3
+                        .as_ref()
+                        .map(|processor| {
+                            (
+                                processor.process_count(),
+                                processor.last_input_peak(),
+                                processor.last_output_peak(),
+                                processor.last_difference_peak(),
+                            )
+                        })
+                        .unwrap_or((0, 0.0, 0.0, 0.0));
+                    format!(
+                        "track={} insert={} kind={} format={} enabled={} vst3Ready={} processCount={} inPeak={:.4} outPeak={:.4} diffPeak={:.6} path={}",
+                        track.id,
+                        insert.id,
+                        insert.kind,
+                        format,
+                        insert.enabled,
+                        vst3_ready,
+                        process_count,
+                        input_peak,
+                        output_peak,
+                        diff_peak,
+                        path,
+                    )
+                })
+            })
+            .collect();
 
         JsEngineDebugInfo {
             project_id: project.as_ref().map(|p| p.project_id.clone()),
@@ -659,6 +708,7 @@ impl EngineInner {
             position_seconds: position_samples as f64 / sample_rate as f64,
             has_solo: runtime.has_solo,
             clip_summaries,
+            insert_summaries,
         }
     }
 
@@ -1112,6 +1162,16 @@ pub fn apply_preview_mode(l: f32, r: f32, mode: RuntimePreviewMode) -> (f32, f32
 
 #[inline]
 pub fn apply_insert(l: f32, r: f32, insert: &mut RuntimeInsert) -> (f32, f32) {
+    if insert.kind.eq_ignore_ascii_case("native-plugin") {
+        if !insert.enabled {
+            return (l, r);
+        }
+        if let Some(vst3) = insert.vst3.as_mut() {
+            return vst3.process_stereo_sample(l, r).unwrap_or((l, r));
+        }
+        return (l, r);
+    }
+
     let plugin_id = canonical_plugin_id(&insert.kind);
     process_stereo_sample(
         plugin_id,

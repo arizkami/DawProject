@@ -495,6 +495,10 @@ type AudioDebugGlobal = Window & {
         console.log("Clips:");
         debugInfo.clipSummaries.forEach((s: string) => console.log(" ", s));
       }
+      if (debugInfo.insertSummaries?.length) {
+        console.log("Inserts:");
+        debugInfo.insertSummaries.forEach((s: string) => console.log(" ", s));
+      }
     }
     console.log("Full data:", data);
     console.groupEnd();

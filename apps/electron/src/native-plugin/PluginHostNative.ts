@@ -21,6 +21,8 @@ type NativePluginInfo = {
   name?: string;
   vendor?: string;
   category?: string;
+  subCategories?: string;
+  sub_categories?: string;
   format?: string;
   path?: string;
   classId?: string | null;
@@ -36,6 +38,9 @@ type PluginEditorWindowOptions = {
   subtitle?: string;
   width?: number;
   height?: number;
+  pluginPath?: string;
+  classId?: string;
+  format?: string;
 };
 
 type PluginHostAddon = {
@@ -46,6 +51,8 @@ type PluginHostAddon = {
   openPluginEditorWindow?: (options: PluginEditorWindowOptions) => number;
   openPluginEditorForPath?: (pluginPath: string) => number;
   closePluginEditorWindow?: (handle: number) => void;
+  focusPluginEditorWindow?: (handle: number) => void;
+  resizePluginEditorWindow?: (handle: number, width: number, height: number) => void;
   getBackendVersion?: () => string;
 };
 
@@ -137,6 +144,7 @@ function getDb(): SqliteDatabase | null {
         vendor TEXT NOT NULL,
         format TEXT NOT NULL,
         category TEXT NOT NULL,
+        sub_categories TEXT,
         kind TEXT NOT NULL,
         path TEXT NOT NULL,
         class_id TEXT,
@@ -150,6 +158,11 @@ function getDb(): SqliteDatabase | null {
       CREATE INDEX IF NOT EXISTS idx_audio_plugins_path ON audio_plugins(path);
       CREATE INDEX IF NOT EXISTS idx_audio_plugins_name ON audio_plugins(name);
     `);
+    try {
+      db.exec("ALTER TABLE audio_plugins ADD COLUMN sub_categories TEXT");
+    } catch {
+      // Existing registries already have the column.
+    }
   } catch (error) {
     console.warn("[PluginHost] SQLite registry unavailable:", error);
     db = null;
@@ -201,21 +214,52 @@ function safeFileName(value: string): string {
     .slice(0, 120) || "Unknown Plug-in";
 }
 
-function classifyPlugin(category: string, name: string): "effect" | "instrument" {
-  const haystack = `${category} ${name}`.toLowerCase();
+function classifyPlugin(category: string, name: string, subCategories?: string): "effect" | "instrument" {
+  const haystack = `${category} ${subCategories ?? ""} ${name}`.toLowerCase();
   if (/\b(instrument|synth|synthesizer|sampler|rompler|drum|piano|organ|bass|generator)\b/.test(haystack)) {
     return "instrument";
   }
   return "effect";
 }
 
+function normalizeCategoryLabel(format: string, category: string, subCategories?: string): string {
+  const tags = (subCategories ?? "")
+    .split("|")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+
+  if (format === "VST3") {
+    return tags.length > 0 ? tags.join("|") : category;
+  }
+
+  if (format === "CLAP") {
+    const specific = tags.filter((tag) => !/^(audio-effect|audio effect|plugin|utility)$/i.test(tag));
+    const displayTags = specific.length > 0 ? specific : tags;
+    if (displayTags.some((tag) => /^instrument$/i.test(tag))) return "Instrument";
+    if (displayTags.some((tag) => /effect/i.test(tag))) return "Effect";
+    if (/^audio effect$/i.test(category)) return "Effect";
+    return displayTags[0] ?? category;
+  }
+
+  return category;
+}
+
 function rowFromDb(row: Record<string, unknown>): AudioPluginRegistryEntry {
+  let metadata: Partial<AudioPluginRegistryEntry> = {};
+  if (typeof row.metadata_json === "string") {
+    try { metadata = JSON.parse(row.metadata_json) as Partial<AudioPluginRegistryEntry>; } catch { metadata = {}; }
+  }
+  const format = String(row.format) as "VST3" | "CLAP";
+  const rawCategory = String(row.category);
+  const subCategories = typeof row.sub_categories === "string" ? row.sub_categories : metadata.subCategories;
   return {
     id: String(row.id),
     name: String(row.name),
     vendor: String(row.vendor),
-    format: String(row.format) as "VST3" | "CLAP",
-    category: String(row.category),
+    format,
+    category: normalizeCategoryLabel(format, rawCategory, subCategories),
+    rawCategory,
+    subCategories,
     kind: row.kind === "instrument" ? "instrument" : "effect",
     path: String(row.path),
     classId: typeof row.class_id === "string" ? row.class_id : undefined,
@@ -230,10 +274,12 @@ function normalizeNativePlugin(plugin: NativePluginInfo, scannedAt: number): Aud
   if (!plugin.path) return null;
   const name = plugin.name?.trim() || path.basename(plugin.path, path.extname(plugin.path)) || "Unknown Plug-in";
   const vendor = plugin.vendor?.trim() || "Unknown Vendor";
-  const category = plugin.category?.trim() || "Uncategorized";
+  const rawCategory = plugin.category?.trim() || "Uncategorized";
+  const subCategories = (plugin.subCategories ?? plugin.sub_categories)?.trim() || undefined;
   const classId = plugin.classId ?? plugin.class_id ?? undefined;
   const format = (plugin.format || "VST3").toUpperCase();
-  const kind = classifyPlugin(category, name);
+  const category = normalizeCategoryLabel(format, rawCategory, subCategories);
+  const kind = classifyPlugin(rawCategory, name, subCategories);
   const id = plugin.id || stableId(`${plugin.path}:${classId ?? name}`, format);
   const presetDir = path.join(presetRootPath(), format === "CLAP" ? "CLAP" : "VST3", kind === "instrument" ? "Instruments" : "Effects");
   const presetName = `${safeFileName(name)}.pst`;
@@ -243,6 +289,8 @@ function normalizeNativePlugin(plugin: NativePluginInfo, scannedAt: number): Aud
     vendor,
     format: format as "VST3" | "CLAP",
     category,
+    rawCategory,
+    subCategories,
     kind,
     path: plugin.path,
     classId,
@@ -264,6 +312,8 @@ function buildPresetBinary(plugin: AudioPluginRegistryEntry, pluginState: Buffer
       vendor: plugin.vendor,
       format: plugin.format,
       category: plugin.category,
+      rawCategory: plugin.rawCategory,
+      subCategories: plugin.subCategories,
       kind: plugin.kind,
       path: plugin.path,
       classId: plugin.classId,
@@ -322,14 +372,15 @@ function upsertPlugin(plugin: AudioPluginRegistryEntry): void {
   if (!registry) return;
   registry.prepare(`
     INSERT INTO audio_plugins (
-      id, name, vendor, format, category, kind, path, class_id, version,
+      id, name, vendor, format, category, sub_categories, kind, path, class_id, version,
       sdk_metadata_loaded, preset_path, scanned_at, metadata_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
       vendor = excluded.vendor,
       format = excluded.format,
       category = excluded.category,
+      sub_categories = excluded.sub_categories,
       kind = excluded.kind,
       path = excluded.path,
       class_id = excluded.class_id,
@@ -343,7 +394,8 @@ function upsertPlugin(plugin: AudioPluginRegistryEntry): void {
     plugin.name,
     plugin.vendor,
     plugin.format,
-    plugin.category,
+    plugin.rawCategory ?? plugin.category,
+    plugin.subCategories ?? null,
     plugin.kind,
     plugin.path,
     plugin.classId ?? null,
@@ -594,6 +646,16 @@ export class PluginHostNative {
   closePluginEditorWindow(handle: number): void {
     const native = loadAddon();
     native?.closePluginEditorWindow?.(handle);
+  }
+
+  focusPluginEditorWindow(handle: number): void {
+    const native = loadAddon();
+    native?.focusPluginEditorWindow?.(handle);
+  }
+
+  resizePluginEditorWindow(handle: number, width: number, height: number): void {
+    const native = loadAddon();
+    native?.resizePluginEditorWindow?.(handle, width, height);
   }
 
   presetPathForPlugin(pluginId: string): string | null {

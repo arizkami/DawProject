@@ -723,3 +723,23 @@ When implementing UI:
 9. Do not claim success if only UI changed.
 
 When unsure, prefer compact, subtle, dark, editor-like, DAW-like, and performant.
+
+## Theme Rules
+
+- Components must use the project theme tokens from `theme.ts`.
+- Do not invent hardcoded colors.
+- Do not add arbitrary Tailwind colors unless approved.
+- If a color is missing, add a semantic token first.
+- Prefer semantic names:
+  - `surface.base`
+  - `surface.panel`
+  - `surface.raised`
+  - `border.subtle`
+  - `border.strong`
+  - `text.primary`
+  - `text.secondary`
+  - `accent.primary`
+  - `status.success`
+  - `status.warning`
+  - `status.error`
+- UI must remain dark, compact, and DAW-native.

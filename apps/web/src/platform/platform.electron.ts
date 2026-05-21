@@ -495,6 +495,12 @@ const pluginHost: PluginHostAdapter = {
   async closeEditorWindow(handle: number) {
     await bridge().pluginHost?.closeEditorWindow(handle);
   },
+  async focusEditorWindow(handle: number) {
+    await bridge().pluginHost?.focusEditorWindow?.(handle);
+  },
+  async resizeEditorWindow(handle: number, width: number, height: number) {
+    await bridge().pluginHost?.resizeEditorWindow?.(handle, width, height);
+  },
 };
 
 export const electronPlatform: Platform = {

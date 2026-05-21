@@ -13,6 +13,7 @@ use serde_json::Value;
 use sphere_audio_plugins::{canonical_plugin_id, should_rebuild_state, AudioPluginDspState};
 
 use crate::types::{EngineClipSnapshot, EngineProjectSnapshot};
+use crate::vst3_processor::Vst3RuntimeProcessor;
 
 #[derive(Debug, Clone)]
 pub struct RuntimeTrack {
@@ -108,6 +109,7 @@ pub struct RuntimeInsert {
     pub enabled: bool,
     pub params: HashMap<String, Value>,
     pub dsp: InsertDspState,
+    pub vst3: Option<Vst3RuntimeProcessor>,
 }
 
 pub type InsertDspState = AudioPluginDspState;
@@ -244,6 +246,31 @@ impl RuntimeProject {
                             &insert.params,
                             output_sample_rate,
                         ),
+                        vst3: if insert.kind.eq_ignore_ascii_case("native-plugin")
+                            && insert
+                                .params
+                                .get("format")
+                                .and_then(Value::as_str)
+                                .map(|format| format.eq_ignore_ascii_case("VST3"))
+                                .unwrap_or(false)
+                        {
+                            let processor =
+                                Vst3RuntimeProcessor::from_params(&insert.params, output_sample_rate);
+                            eprintln!(
+                                "[SphereAudio] native VST3 insert track='{}' insert='{}' ready={} path='{}'",
+                                t.id,
+                                insert.id,
+                                processor.as_ref().map(|p| p.is_ready()).unwrap_or(false),
+                                insert
+                                    .params
+                                    .get("path")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("")
+                            );
+                            processor
+                        } else {
+                            None
+                        },
                     })
                     .collect(),
                 sends: t

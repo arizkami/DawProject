@@ -1,7 +1,6 @@
 import {
   ChevronDown, Minus, Plus, SlidersHorizontal, X,
-  Activity, Waves, Sparkles, AudioLines, Gauge, Boxes, Plug,
-  Send, FolderPlus, CornerDownLeft, GitMerge, ExternalLink,
+  Plug, Send, FolderPlus, CornerDownLeft, GitMerge, ExternalLink,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -11,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/menu";
-import { forwardRef, useRef, useState, useEffect, type ButtonHTMLAttributes } from "react";
+import { forwardRef, useMemo, useRef, useState, useEffect, type ButtonHTMLAttributes } from "react";
 import { useProjectStore } from "../store/projectStore";
 import { useUIStore } from "../store/uiStore";
 import { useHistoryStore } from "../store/historyStore";
@@ -28,12 +27,57 @@ import { AddTrackSendCommand, RemoveTrackSendCommand } from "../commands";
 import { BUILT_IN_PLUGINS, type BuiltInPlugin } from "../plugins/registry";
 import { showToast } from "./ui/Toast";
 import { platform } from "../platform";
+import type { AudioPluginRegistryEntry } from "../platform/platform.types";
+import { C, semanticColors } from "../theme";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-let lastInsertAdd:
-  | { trackId: string; pluginId: string; at: number }
-  | null = null;
+type InsertPickerPlugin =
+  | {
+      source: "builtin";
+      id: string;
+      name: string;
+      vendor: string;
+      category: string;
+      format: "Built-in";
+      kind: "effect" | "instrument";
+      status: string;
+      plugin: BuiltInPlugin;
+    }
+  | {
+      source: "native";
+      id: string;
+      name: string;
+      vendor: string;
+      category: string;
+      format: AudioPluginRegistryEntry["format"];
+      kind: AudioPluginRegistryEntry["kind"];
+      status: string;
+      plugin: AudioPluginRegistryEntry;
+    };
+
+function pluginDisplayCategory(plugin: AudioPluginRegistryEntry): string {
+  return plugin.subCategories?.trim() || plugin.category || plugin.rawCategory || "Uncategorized";
+}
+
+function nativePluginToInsert(plugin: AudioPluginRegistryEntry): InsertDevice {
+  return {
+    id: crypto.randomUUID(),
+    type: "native-plugin",
+    name: plugin.name,
+    enabled: true,
+    order: 0,
+    params: {
+      nativePluginId: plugin.id,
+      format: plugin.format,
+      vendor: plugin.vendor,
+      category: pluginDisplayCategory(plugin),
+      path: plugin.path,
+      presetPath: plugin.presetPath,
+      classId: plugin.classId ?? "",
+    },
+  };
+}
 
 function syncNativeMixer(project: DawProject, masterVolume: number) {
   const bridge = window.dawElectron?.floatingWindow;
@@ -135,35 +179,68 @@ const SectionAddButton = forwardRef<HTMLButtonElement, SectionAddButtonProps>(
 
 function InsertsAddMenu({ accent, trackId }: { accent: string; trackId?: string }) {
   const { addInsertDevice } = useProjectStore();
-  const add = (plugin: BuiltInPlugin) => {
-    if (!trackId) return;
-    const now = performance.now();
-    if (
-      lastInsertAdd &&
-      lastInsertAdd.trackId === trackId &&
-      lastInsertAdd.pluginId === plugin.id &&
-      now - lastInsertAdd.at < 450
-    ) {
-      return;
-    }
-    lastInsertAdd = { trackId, pluginId: plugin.id, at: now };
-    const device: InsertDevice = {
-      id: crypto.randomUUID(),
-      type: plugin.type,
-      name: plugin.name,
-      enabled: true,
-      order: 0,
-      params: plugin.defaultParams(),
-    };
-    addInsertDevice(trackId, device);
-  };
+  const [query, setQuery] = useState("");
+  const [formatFilter, setFormatFilter] = useState<"all" | "Built-in" | "VST3" | "CLAP">("all");
+  const [kindFilter, setKindFilter] = useState<"all" | "effect" | "instrument">("all");
+  const [nativePlugins, setNativePlugins] = useState<AudioPluginRegistryEntry[]>([]);
 
-  const iconForPlugin = (plugin: BuiltInPlugin) => {
-    if (plugin.type === "eq") return Activity;
-    if (plugin.type === "delay") return AudioLines;
-    if (plugin.type === "reverb") return Waves;
-    if (plugin.type === "optical-compressor" || plugin.type === "compressor") return Gauge;
-    return Sparkles;
+  useEffect(() => {
+    let cancelled = false;
+    if (!platform.pluginHost.isSupported) return;
+    void platform.pluginHost.listPlugins().then((plugins) => {
+      if (!cancelled) setNativePlugins(plugins);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const pickerPlugins = useMemo<InsertPickerPlugin[]>(() => {
+    const builtIns: InsertPickerPlugin[] = BUILT_IN_PLUGINS.map((plugin) => ({
+      source: "builtin",
+      id: plugin.id,
+      name: plugin.name,
+      vendor: "Futureboard",
+      category: plugin.type,
+      format: "Built-in",
+      kind: "effect",
+      status: "Ready",
+      plugin,
+    }));
+    const native = nativePlugins.map<InsertPickerPlugin>((plugin) => ({
+      source: "native",
+      id: plugin.id,
+      name: plugin.name,
+      vendor: plugin.vendor,
+      category: pluginDisplayCategory(plugin),
+      format: plugin.format,
+      kind: plugin.kind,
+      status: plugin.sdkMetadataLoaded ? "Ready" : "Indexed",
+      plugin,
+    }));
+    return [...builtIns, ...native];
+  }, [nativePlugins]);
+
+  const visiblePlugins = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return pickerPlugins
+      .filter((plugin) => formatFilter === "all" || plugin.format === formatFilter)
+      .filter((plugin) => kindFilter === "all" || plugin.kind === kindFilter)
+      .filter((plugin) => !q || `${plugin.name} ${plugin.vendor} ${plugin.category} ${plugin.format} ${plugin.status}`.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [formatFilter, kindFilter, pickerPlugins, query]);
+
+  const add = (plugin: InsertPickerPlugin) => {
+    if (!trackId) return;
+    const device: InsertDevice = plugin.source === "builtin"
+      ? {
+          id: crypto.randomUUID(),
+          type: plugin.plugin.type,
+          name: plugin.plugin.name,
+          enabled: true,
+          order: 0,
+          params: plugin.plugin.defaultParams(),
+        }
+      : nativePluginToInsert(plugin.plugin);
+    addInsertDevice(trackId, device);
   };
 
   return (
@@ -171,15 +248,79 @@ function InsertsAddMenu({ accent, trackId }: { accent: string; trackId?: string 
       <DropdownMenuTrigger asChild>
         <SectionAddButton accent={accent} title="Add insert" disabled={!trackId} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={4}>
-        <DropdownMenuLabel className="text-xs">Add Device</DropdownMenuLabel>
-        {BUILT_IN_PLUGINS.map((plugin) => (
-          <DropdownMenuItem className="text-xs" key={plugin.id} icon={iconForPlugin(plugin)} onSelect={() => add(plugin)}>
-            {plugin.name}
-          </DropdownMenuItem>
-        ))}
+      <DropdownMenuContent align="end" sideOffset={4} className="w-[420px] p-1.5">
+        <div className="px-1 pb-1">
+          <DropdownMenuLabel className="px-0 text-[11px]">Add Insert</DropdownMenuLabel>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.currentTarget.value)}
+            placeholder="Search name, vendor, category…"
+            className="mt-1 h-7 w-full rounded border px-2 text-[11px] outline-none"
+            style={{
+              background: semanticColors.surface.sunken,
+              borderColor: semanticColors.border.subtle,
+              color: semanticColors.text.primary,
+            }}
+          />
+          <div className="mt-1.5 flex gap-1">
+            {(["all", "Built-in", "VST3", "CLAP"] as const).map((format) => (
+              <button
+                key={format}
+                type="button"
+                onClick={() => setFormatFilter(format)}
+                className="h-6 rounded border px-2 text-[10px] font-semibold"
+                style={{
+                  background: formatFilter === format ? semanticColors.accent.soft : semanticColors.surface.subtle,
+                  borderColor: formatFilter === format ? semanticColors.accent.border : semanticColors.border.subtle,
+                  color: formatFilter === format ? semanticColors.accent.primary : semanticColors.text.muted,
+                }}
+              >
+                {format === "all" ? "All" : format}
+              </button>
+            ))}
+            <div className="flex-1" />
+            {(["all", "effect", "instrument"] as const).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => setKindFilter(kind)}
+                className="h-6 rounded border px-2 text-[10px] font-semibold capitalize"
+                style={{
+                  background: kindFilter === kind ? semanticColors.accent.soft : semanticColors.surface.subtle,
+                  borderColor: kindFilter === kind ? semanticColors.accent.border : semanticColors.border.subtle,
+                  color: kindFilter === kind ? semanticColors.accent.primary : semanticColors.text.muted,
+                }}
+              >
+                {kind}
+              </button>
+            ))}
+          </div>
+        </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem icon={Boxes} disabled>Browse Devices…</DropdownMenuItem>
+        <div className="max-h-[280px] overflow-y-auto py-0.5">
+          {visiblePlugins.length === 0 ? (
+            <div className="px-2 py-3 text-center text-[11px]" style={{ color: semanticColors.text.faint }}>
+              No plug-ins match the current filter.
+            </div>
+          ) : visiblePlugins.map((plugin) => (
+            <button
+              key={`${plugin.source}:${plugin.id}`}
+              type="button"
+              onClick={() => add(plugin)}
+              className="grid h-[30px] w-full grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_46px_54px] items-center gap-2 rounded px-2 text-left text-[11px] transition-colors"
+              style={{ color: semanticColors.text.secondary }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = semanticColors.surface.hover; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <span className="truncate font-medium" style={{ color: semanticColors.text.primary }} title={plugin.name}>{plugin.name}</span>
+              <span className="truncate" title={plugin.vendor}>{plugin.vendor}</span>
+              <span className="truncate" title={plugin.category}>{plugin.category}</span>
+              <span className="truncate text-[10px]" style={{ color: semanticColors.accent.primary }}>{plugin.format}</span>
+              <span className="truncate text-[10px]" style={{ color: plugin.status === "Ready" ? semanticColors.status.success : semanticColors.text.faint }}>{plugin.status}</span>
+            </button>
+          ))}
+        </div>
+        <DropdownMenuSeparator />
         <DropdownMenuItem icon={Plug} disabled>Plugin Manager…</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -238,12 +379,18 @@ function InsertRow({
   const { toggleInsertDevice, removeInsertDevice } = useProjectStore();
   const openEditor = () => {
     if (!platform.pluginHost.isSupported) return;
+    const pluginPath = typeof insert.params.path === "string" ? insert.params.path : undefined;
+    const classId = typeof insert.params.classId === "string" ? insert.params.classId : undefined;
+    const format = typeof insert.params.format === "string" ? insert.params.format : undefined;
     void platform.pluginHost.openEditorWindow({
       windowId: `plugin-editor:${trackId}:${insert.id}`,
       title: insert.name || "Plugin Editor",
-      subtitle: `${insert.type} • ${trackId}`,
-      width: 560,
-      height: 380,
+      subtitle: `${format || insert.type} • ${trackId}`,
+      width: 820,
+      height: 560,
+      pluginPath,
+      classId,
+      format,
     });
   };
   return (
@@ -374,7 +521,8 @@ function SendRow({ send, trackId, project }: { send: TrackSend; trackId: string;
         step={0.5}
         value={sliderDb}
         onChange={(e) => updateLevel(Number(e.currentTarget.value))}
-        className="h-4 w-12 shrink-0 accent-[#72d7d7]"
+        className="h-4 w-12 shrink-0"
+        style={{ accentColor: semanticColors.accent.primary }}
       />
       <span className="w-8 shrink-0 text-right text-[9px] tabular-nums text-white/35">{sendToDb(send.level)}</span>
       <button
@@ -741,15 +889,15 @@ export function MixerPanel({
   return (
     <div
       className={[
-        "flex flex-col overflow-hidden bg-[#111418]",
+        "flex flex-col overflow-hidden",
         embedded ? "min-h-0 flex-1" : "shrink-0 border-t border-daw-border",
       ].join(" ")}
       style={
         externalWindow
-          ? { height: "100%", minHeight: 0 }
+          ? { height: "100%", minHeight: 0, background: C.sunken }
           : embedded
-            ? undefined
-            : { height: mixerHeight, minHeight: mixerHeight }
+            ? { background: C.sunken }
+            : { height: mixerHeight, minHeight: mixerHeight, background: C.sunken }
       }
       onPointerMove={onStripResizeDrag}
       onPointerUp={onStripResizeDragEnd}
@@ -950,7 +1098,7 @@ export function MixerPanel({
               <ChannelStrip
                 label="Master"
                 project={project}
-                color="#48d1cc"
+                color={C.accent}
                 volume={masterVolume}
                 level={stripLevel}
                 fixedWidth={fixedWidth !== undefined ? Math.max(fixedWidth, 76) : undefined}

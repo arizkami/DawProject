@@ -888,6 +888,7 @@ function projectGraphSignature(project: DawProject): string {
         type: insert.type,
         enabled: insert.enabled,
         order: insert.order,
+        params: insert.params,
       })),
       sends: (track.sends ?? []).map((send) => ({
         id: send.id,

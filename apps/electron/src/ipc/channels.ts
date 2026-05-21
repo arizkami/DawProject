@@ -58,6 +58,8 @@ export const IpcChannels = {
   PluginHostOpenEditorWindow: "daw:pluginHost:openEditorWindow",
   PluginHostOpenEditorForPath: "daw:pluginHost:openEditorForPath",
   PluginHostCloseEditorWindow: "daw:pluginHost:closeEditorWindow",
+  PluginHostFocusEditorWindow: "daw:pluginHost:focusEditorWindow",
+  PluginHostResizeEditorWindow: "daw:pluginHost:resizeEditorWindow",
 
   // Folder-based project operations (Electron only)
   ProjectFolderBrowseLocation: "daw:project:folderBrowseLocation",
@@ -244,6 +246,8 @@ export type AudioPluginRegistryEntry = {
   vendor: string;
   format: "VST3" | "CLAP" | (string & {});
   category: string;
+  rawCategory?: string;
+  subCategories?: string;
   kind: AudioPluginKind;
   path: string;
   classId?: string;
@@ -268,6 +272,9 @@ export type PluginEditorWindowOpenOptions = {
   subtitle?: string;
   width?: number;
   height?: number;
+  pluginPath?: string;
+  classId?: string;
+  format?: string;
 };
 
 export type AudioPluginScanResult = {

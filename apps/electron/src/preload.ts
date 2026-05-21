@@ -171,6 +171,10 @@ const pluginHostBridge = Object.freeze({
     invoke(IpcChannels.PluginHostOpenEditorForPath, pluginPath),
   closeEditorWindow: (handle: number): Promise<void> =>
     invoke(IpcChannels.PluginHostCloseEditorWindow, handle),
+  focusEditorWindow: (handle: number): Promise<void> =>
+    invoke(IpcChannels.PluginHostFocusEditorWindow, handle),
+  resizeEditorWindow: (handle: number, width: number, height: number): Promise<void> =>
+    invoke(IpcChannels.PluginHostResizeEditorWindow, { handle, width, height }),
 });
 
 const floatingWindowBridge = Object.freeze({

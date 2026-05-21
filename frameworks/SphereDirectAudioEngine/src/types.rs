@@ -334,4 +334,6 @@ pub struct JsEngineDebugInfo {
     pub has_solo: bool,
     /// Human-readable summary of each loaded clip (id, trackId, startSec, durationSec, frames).
     pub clip_summaries: Vec<String>,
+    /// Human-readable summary of inserts, including whether native VST3 processors are active.
+    pub insert_summaries: Vec<String>,
 }
